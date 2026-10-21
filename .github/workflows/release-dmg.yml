@@ -1,0 +1,36 @@
+name: release-dmg
+
+# Gera o DMG do macOS (Apple Silicon) neste fork.
+#  - Manualmente: aba Actions > release-dmg > Run workflow (o DMG fica como artefato).
+#  - Ao criar uma tag "v*": alem do artefato, publica um Release com o DMG anexado.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Install tools
+        run: brew install ninja spirv-tools
+      - name: Build DMG
+        env:
+          BUILD_DIR: build/release
+        run: ./tools/make_dmg.sh "${GITHUB_REF_NAME//\//-}"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Azahar-dmg
+          path: dist/*.dmg
+      - name: Publish release
+        if: ${{ github.ref_type == 'tag' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "Azahar 3DS Home UI $GITHUB_REF_NAME" --generate-notes
