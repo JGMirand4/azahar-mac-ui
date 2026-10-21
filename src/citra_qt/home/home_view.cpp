@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDate>
 #include <QFontMetrics>
+#include <QButtonGroup>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -353,6 +354,22 @@ private:
 
 /// Arte do jogo em destaque: ceu, colinas e o icone do jogo em tamanho grande,
 /// tudo colorido a partir da cor media do icone.
+/// Parte da imagem que cobre todo o alvo sem distorcer (recorte centralizado).
+static QRectF AspectFillSource(const QPixmap& pixmap, const QRectF& target) {
+    const QRectF all(pixmap.rect());
+    if (all.isEmpty() || target.isEmpty()) {
+        return all;
+    }
+    const qreal target_ratio = target.width() / target.height();
+    const qreal source_ratio = all.width() / all.height();
+    if (source_ratio > target_ratio) {
+        const qreal w = all.height() * target_ratio;
+        return QRectF(all.left() + (all.width() - w) / 2, all.top(), w, all.height());
+    }
+    const qreal h = all.width() / target_ratio;
+    return QRectF(all.left(), all.top() + (all.height() - h) / 2, all.width(), h);
+}
+
 class HeroArt : public QWidget {
 public:
     explicit HeroArt(const Theme* theme_, QWidget* parent = nullptr)
@@ -368,8 +385,9 @@ public:
         });
     }
 
-    void SetGame(const QPixmap& icon_, const QString& title) {
+    void SetGame(const QPixmap& icon_, const QString& title, bool custom_cover_ = false) {
         icon = icon_;
+        custom_cover = custom_cover_;
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
         base = AverageColor(icon, theme->accent_light);
         animation->stop();
@@ -388,6 +406,18 @@ protected:
         QPainterPath clip;
         clip.addRoundedRect(r, 22, 22);
         p.setClipPath(clip);
+
+        if (custom_cover && !icon.isNull()) {
+            // Capa personalizada: preenche todo o banner, sem distorcer.
+            p.setOpacity(0.35 + 0.65 * fade);
+            p.drawPixmap(r, icon, AspectFillSource(icon, r));
+            p.setOpacity(1.0);
+            QLinearGradient shade(QPointF(r.left(), r.top() + r.height() * 0.55), r.bottomLeft());
+            shade.setColorAt(0.0, QColor(0, 0, 0, 0));
+            shade.setColorAt(1.0, QColor(0, 0, 0, 60));
+            p.fillRect(r, shade);
+            return;
+        }
 
         float hue = base.hslHueF();
         if (hue < 0.0f) {
@@ -459,6 +489,7 @@ protected:
 private:
     const Theme* theme;
     QPixmap icon;
+    bool custom_cover = false;
     QString initial;
     QColor base;
     QVariantAnimation* animation = nullptr;
@@ -525,7 +556,7 @@ public:
         clip.addRoundedRect(rect, radius, radius);
         p->setClipPath(clip);
         if (!game.icon.isNull()) {
-            p->drawPixmap(rect, game.icon, QRectF(game.icon.rect()));
+            p->drawPixmap(rect, game.icon, AspectFillSource(game.icon, rect));
         } else {
             QLinearGradient fill(rect.topLeft(), rect.bottomRight());
             fill.setColorAt(0.0, theme.accent_light);
@@ -938,8 +969,13 @@ void HomeView::BuildUi() {
     for (QPushButton* button : {dock_home, dock_library, dock_search, dock_folders}) {
         dock_layout->addWidget(button);
     }
+    dock_library->setCheckable(true);
+    auto* nav_group = new QButtonGroup(this);
+    nav_group->setExclusive(true);
+    nav_group->addButton(dock_home);
+    nav_group->addButton(dock_library);
     connect(dock_home, &QPushButton::clicked, this, [this] {
-        dock_home->setChecked(true);
+        SetLibraryMode(false);
         grid->scrollToTop();
         for (int row = 0; row < model->rowCount(); ++row) {
             if (!grid->isRowHidden(row)) {
@@ -949,8 +985,7 @@ void HomeView::BuildUi() {
         }
     });
     connect(dock_library, &QPushButton::clicked, this, [this] {
-        dock_library->setChecked(false);
-        dock_home->setChecked(true);
+        SetLibraryMode(true);
         FocusGrid();
     });
     connect(dock_search, &QPushButton::clicked, this, [this] { emit SearchRequested(); });
@@ -1228,6 +1263,14 @@ void HomeView::TakeSearchWidget() {
     }
 }
 
+/// Modo biblioteca: esconde o destaque para a grade ocupar toda a janela.
+void HomeView::SetLibraryMode(bool enabled) {
+    library_mode = enabled;
+    hero_panel->setVisible(!enabled);
+    dock_home->setChecked(!enabled);
+    dock_library->setChecked(enabled);
+}
+
 void HomeView::FocusGrid() {
     grid->setFocus();
 }
@@ -1277,7 +1320,7 @@ void HomeView::UpdateHero() {
     favorite_button->setChecked(game->favorite);
     favorite_button->setIcon(
         MakeIcon(Glyph::Star, theme.text, 22, dpr, game->favorite, theme.favorite));
-    hero_art->SetGame(game->icon, game->title);
+    hero_art->SetGame(game->icon, game->title, game->custom_cover);
 }
 
 void HomeView::SetLocale(const QLocale& locale) {

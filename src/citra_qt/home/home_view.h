@@ -43,6 +43,7 @@ struct GameInfo {
     quint32 media_type = 0;
     bool can_insert = false;
     bool favorite = false;
+    bool custom_cover = false; // capa escolhida pelo usuario (preenche o banner)
 };
 
 enum class SortMode {
@@ -83,6 +84,7 @@ public:
     }
 
     void FocusGrid();
+    void SetLibraryMode(bool enabled);
 
     /// Idioma usado na data e na hora do topo.
     void SetLocale(const QLocale& locale);
@@ -118,6 +120,7 @@ private:
     std::vector<GameInfo> games;
     SortMode sort_mode = SortMode::Name;
     bool compact = false;
+    bool library_mode = false;
     QString filter_text;
 
     QStandardItemModel* model = nullptr;

@@ -497,11 +497,11 @@ void GameList::PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& gl
             QMessageBox::warning(this, tr("Change cover"), tr("Could not open this image."));
             return;
         }
-        // Recorta para quadrado (centro) e reduz: o card usa um quadrado arredondado.
-        const int side = std::min(source.width(), source.height());
-        QImage square = source.copy((source.width() - side) / 2, (source.height() - side) / 2,
-                                    side, side)
-                            .scaled(256, 256, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        // Mantem a proporcao original (so reduz); o card e o banner recortam ao exibir.
+        QImage square = source.width() > 1280 || source.height() > 1280
+                            ? source.scaled(1280, 1280, Qt::KeepAspectRatio,
+                                            Qt::SmoothTransformation)
+                            : source;
         QDir().mkpath(QFileInfo(cover_path).absolutePath());
         if (!square.save(cover_path, "PNG")) {
             QMessageBox::warning(this, tr("Change cover"), tr("Could not save the cover."));
@@ -555,6 +555,7 @@ void GameList::RebuildHomeView() {
                 QFileInfo::exists(cover)) {
                 if (QPixmap custom(cover); !custom.isNull()) {
                     info.icon = custom;
+                    info.custom_cover = true;
                 }
             }
             info.extdata_id = name->data(GameListItemPath::ExtdataIdRole).toULongLong();
@@ -588,7 +589,7 @@ GameList::~GameList() {
 }
 
 void GameList::SetFilterFocus() {
-    if (tree_view->model()->rowCount() > 0) {
+    if (home_mode || tree_view->model()->rowCount() > 0) {
         search_field->setFocus();
     }
 }
