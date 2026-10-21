@@ -22,7 +22,9 @@ class QVBoxLayout;
 namespace Home {
 
 class CarouselWidget;
+class Curtain;
 class HintBar;
+class SoundBank;
 
 class BatteryWidget;
 class HeroArt;
@@ -83,6 +85,10 @@ public:
     /// Alterna entre a grade de capas e a lista detalhada (continua dentro da tela inicial).
     /// 0 = carrossel (estilo HOME), 1 = grade, 2 = lista detalhada.
     void SetViewMode(int mode);
+    /// Pasta dos sons gerados e se eles estao ligados.
+    void SetSoundOptions(const QString& dir, bool enabled);
+    /// Reflete no botao do topo se o modo console esta ativo.
+    void SetConsoleMode(bool enabled);
     /// Preferencias de exibicao (salvas pelo GameList entre execucoes).
     int GetViewMode() const {
         return view_mode;
@@ -118,6 +124,7 @@ signals:
     void SearchRequested();
     void ClassicViewRequested();
     void PreferencesChanged();
+    void ConsoleModeRequested();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -129,6 +136,7 @@ protected:
 private:
     friend class CardDelegate;
     friend class CarouselWidget;
+    friend class Curtain;
 
     void BuildUi();
     void RebuildStyleSheet();
@@ -138,10 +146,14 @@ private:
     void UpdateClock();
     void ApplySort();
     void UpdateGridMetrics();
+    void UpdateHeroSize();
     void ApplyViewMode();
     void UpdateHints();
     void FocusActiveView();
     bool HandleShortcut(QKeyEvent* event);
+    /// Toca a animacao de abertura do jogo e so entao emite GameActivated.
+    void RequestLaunch(const QString& path);
+    void PlaySound(int sound);
     void SetQuickFilter(int mode);
     void UpdateQuickCounts();
     void PickRandomGame();
@@ -161,6 +173,11 @@ private:
     int visible_count = 0;
     bool library_switched = false;
     CarouselWidget* carousel = nullptr;
+    Curtain* curtain = nullptr;
+    SoundBank* sounds = nullptr;
+    QPushButton* console_button = nullptr;
+    bool launching = false;
+    bool sound_mute = true; // ligado enquanto a tela monta, para nao tocar sons sem querer
     HintBar* hints = nullptr;
     QPushButton* mode_buttons[3] = {nullptr, nullptr, nullptr};
     int quick_filter = 0; // 0 = todos, 1 = favoritos, 2 = ja jogados

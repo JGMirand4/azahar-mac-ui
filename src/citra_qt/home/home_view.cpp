@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <QApplication>
 #include <QDate>
 #include <QFontMetrics>
@@ -33,6 +34,7 @@
 #include <QVariantAnimation>
 #include "citra_qt/home/battery_status.h"
 #include "citra_qt/home/home_view.h"
+#include "citra_qt/home/sound_bank.h"
 
 namespace Home {
 
@@ -89,7 +91,7 @@ QColor AverageColor(const QPixmap& pixmap, const QColor& fallback) {
     return color.alpha() < 16 ? fallback : color;
 }
 
-enum class Glyph { Gear, Star, Dots, Home, Grid, Search, Folder, Plus, Sort, Chevron, List, Carousel };
+enum class Glyph { Gear, Star, Dots, Home, Grid, Search, Folder, Plus, Sort, Chevron, List, Carousel, Fullscreen };
 
 QPolygonF StarPolygon() {
     return QPolygonF({QPointF(12, 2.5), QPointF(15.1, 8.8), QPointF(22, 9.8), QPointF(17, 14.7),
@@ -189,6 +191,15 @@ QPixmap MakeGlyph(Glyph glyph, const QColor& color, int size, qreal dpr, bool fi
         break;
     case Glyph::Chevron:
         p.drawPolyline(QPolygonF({QPointF(6, 9), QPointF(12, 15), QPointF(18, 9)}));
+        break;
+    case Glyph::Fullscreen:
+        for (const int sx : {-1, 1}) {
+            for (const int sy : {-1, 1}) {
+                const QPointF corner(12 + sx * 7.5, 12 + sy * 7.5);
+                p.drawPolyline(QPolygonF({corner + QPointF(-sx * 4.5, 0), corner,
+                                          corner + QPointF(0, -sy * 4.5)}));
+            }
+        }
         break;
     case Glyph::Carousel:
         p.drawRoundedRect(QRectF(8, 5.5, 8, 13), 2, 2);
@@ -626,7 +637,7 @@ class CarouselWidget : public QWidget {
 public:
     CarouselWidget(HomeView* view_, QWidget* parent) : QWidget(parent), view(view_) {
         setFocusPolicy(Qt::StrongFocus);
-        setMinimumHeight(kSelected + 110);
+        setMinimumHeight(kSelected + 76);
         animation = new QVariantAnimation(this);
         animation->setDuration(340);
         animation->setEasingCurve(QEasingCurve::OutCubic);
@@ -690,7 +701,7 @@ protected:
 
         const GameInfo& game = GameAt(current);
         const qreal cx = width() / 2.0;
-        const qreal title_top = kTop + kSelected + 26;
+        const qreal title_top = kTop + kSelected + 14;
         const QFont title_font = RoundedFont(22, QFont::DemiBold);
         p.setFont(title_font);
         p.setPen(view->theme.text);
@@ -779,7 +790,7 @@ private:
     static constexpr qreal kSelected = 156.0;
     static constexpr qreal kSide = 100.0;
     static constexpr qreal kGap = 34.0;
-    static constexpr qreal kTop = 26.0;
+    static constexpr qreal kTop = 18.0;
 
     const GameInfo& GameAt(int i) const {
         const int game_index = view->model->index(rows[i], 0).data(GameRowRole).toInt();
@@ -843,7 +854,7 @@ private:
         if (rows.empty()) {
             return;
         }
-        emit view->GameActivated(GameAt(current).path);
+        view->RequestLaunch(GameAt(current).path);
     }
 
     HomeView* view;
@@ -911,6 +922,138 @@ protected:
 private:
     const Theme* theme;
     QList<QPair<QString, QString>> hints;
+};
+
+/// Camada por cima de tudo para as transicoes: abertura do app (nome do app que some) e
+/// abertura de jogo (a capa cresce enquanto a tela escurece).
+class Curtain : public QWidget {
+public:
+    Curtain(HomeView* view_, QWidget* parent) : QWidget(parent), view(view_) {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        animation = new QVariantAnimation(this);
+        connect(animation, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+            t = value.toReal();
+            update();
+        });
+        connect(animation, &QVariantAnimation::finished, this, [this] { OnFinished(); });
+        hide();
+    }
+
+    bool IntroPlayed() const {
+        return intro_played;
+    }
+
+    void StartIntro() {
+        intro_played = true;
+        Run(Mode::Intro, 1200, QEasingCurve::Linear, 0.0, 1.0);
+    }
+
+    void StartLaunch(const GameInfo& game_, const QRectF& from_, std::function<void()> done_) {
+        game = game_;
+        from = from_;
+        done = std::move(done_);
+        Run(Mode::Launch, 420, QEasingCurve::InOutCubic, 0.0, 1.0);
+    }
+
+    void FadeOut(int ms) {
+        if (mode == Mode::Hold) {
+            Run(Mode::Fade, ms, QEasingCurve::InOutQuad, 1.0, 0.0);
+        }
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform |
+                         QPainter::TextAntialiasing);
+        const Theme& theme = view->theme;
+        const QColor veil_color(0x0B, 0x12, 0x20);
+        if (mode == Mode::Intro) {
+            // Segura o nome do app e depois revela a tela.
+            const qreal fade = t < 0.45 ? 0.0 : std::clamp((t - 0.45) / 0.55, 0.0, 1.0);
+            const qreal alpha = 1.0 - fade * fade * (3.0 - 2.0 * fade);
+            p.setOpacity(alpha);
+            p.fillRect(rect(), theme.bg);
+            p.setPen(theme.on_bg);
+            QFont name = RoundedFont(58, QFont::Bold);
+            p.setFont(name);
+            p.translate(rect().center());
+            const qreal scale = 1.0 + 0.06 * t;
+            p.scale(scale, scale);
+            p.drawText(QRectF(-300, -52, 600, 70), Qt::AlignCenter, QStringLiteral("Azahar"));
+            QFont tag = BodyFont(13, QFont::Bold);
+            tag.setLetterSpacing(QFont::AbsoluteSpacing, 3.0);
+            p.setFont(tag);
+            p.setPen(theme.on_bg_muted);
+            p.drawText(QRectF(-300, 24, 600, 24), Qt::AlignCenter,
+                       QStringLiteral("NINTENDO 3DS EMULATOR"));
+            return;
+        }
+        // Abertura de jogo (e o escurecimento que fica enquanto o jogo carrega).
+        QColor veil = veil_color;
+        veil.setAlphaF(0.94 * (mode == Mode::Launch ? t : t));
+        p.fillRect(rect(), veil);
+        if (mode == Mode::Launch) {
+            const qreal side = std::min(width(), height()) * 0.46;
+            const QRectF target(rect().center().x() - side / 2, rect().center().y() - side / 2,
+                                side, side);
+            const auto lerp = [this](qreal a, qreal b) { return a + (b - a) * t; };
+            const QRectF now(lerp(from.left(), target.left()), lerp(from.top(), target.top()),
+                             lerp(from.width(), target.width()),
+                             lerp(from.height(), target.height()));
+            p.setOpacity(t < 0.8 ? 1.0 : 1.0 - (t - 0.8) / 0.2 * 0.6);
+            PaintTile(&p, now, game, theme, false, now.width() / kIconSize);
+        }
+    }
+
+private:
+    enum class Mode { Idle, Intro, Launch, Hold, Fade };
+
+    void Run(Mode new_mode, int ms, QEasingCurve::Type curve, qreal start, qreal end) {
+        animation->stop();
+        mode = new_mode;
+        t = start;
+        setGeometry(parentWidget()->rect());
+        raise();
+        show();
+        animation->setDuration(ms);
+        animation->setEasingCurve(curve);
+        animation->setStartValue(start);
+        animation->setEndValue(end);
+        animation->start();
+    }
+
+    void OnFinished() {
+        switch (mode) {
+        case Mode::Launch: {
+            mode = Mode::Hold;
+            t = 1.0;
+            update();
+            auto callback = std::move(done);
+            done = nullptr;
+            if (callback) {
+                callback();
+            }
+            break;
+        }
+        case Mode::Intro:
+        case Mode::Fade:
+            mode = Mode::Idle;
+            hide();
+            break;
+        default:
+            break;
+        }
+    }
+
+    HomeView* view;
+    QVariantAnimation* animation = nullptr;
+    Mode mode = Mode::Idle;
+    qreal t = 0.0;
+    bool intro_played = false;
+    GameInfo game;
+    QRectF from;
+    std::function<void()> done;
 };
 
 /// Desenha cada jogo como um cartao arredondado, como no menu HOME do 3DS.
@@ -1198,7 +1341,21 @@ void HomeView::BuildUi() {
     settings_button->setAccessibleName(tr("Settings"));
     settings_button->setIcon(MakeIcon(Glyph::Gear, theme.text, 22, dpr));
     settings_button->setIconSize(QSize(22, 22));
+    console_button = new QPushButton(right);
+    console_button->setObjectName(QStringLiteral("topButton"));
+    console_button->setCursor(Qt::PointingHandCursor);
+    console_button->setCheckable(true);
+    console_button->setToolTip(tr("Console mode (fullscreen)"));
+    console_button->setAccessibleName(tr("Console mode (fullscreen)"));
+    console_button->setIcon(MakeIcon(Glyph::Fullscreen, theme.text, 22, dpr));
+    console_button->setIconSize(QSize(22, 22));
+    // O estado (marcado ou nao) vem do menu; o botao so pede a troca.
+    connect(console_button, &QPushButton::clicked, this, [this](bool checked) {
+        console_button->setChecked(!checked); // volta ao estado real ate o app confirmar
+        emit ConsoleModeRequested();
+    });
     right_layout->addWidget(battery_pill);
+    right_layout->addWidget(console_button);
     right_layout->addWidget(settings_button);
     top_layout->addWidget(right, 0, 2, Qt::AlignRight | Qt::AlignVCenter);
     root->addWidget(top);
@@ -1277,7 +1434,7 @@ void HomeView::BuildUi() {
     }
     connect(play_button, &QPushButton::clicked, this, [this] {
         if (const GameInfo* game = CurrentGame()) {
-            emit GameActivated(game->path);
+            RequestLaunch(game->path);
         }
     });
     actions->addWidget(play_button);
@@ -1291,6 +1448,7 @@ void HomeView::BuildUi() {
     favorite_button->setIconSize(QSize(22, 22));
     connect(favorite_button, &QPushButton::clicked, this, [this] {
         if (const GameInfo* game = CurrentGame()) {
+            PlaySound(static_cast<int>(SoundBank::Sound::Favorite));
             emit FavoriteToggleRequested(game->program_id);
         }
     });
@@ -1392,6 +1550,7 @@ void HomeView::BuildUi() {
         segment_layout->addWidget(button);
     }
     connect(mode_group, &QButtonGroup::idClicked, this, [this](int id) {
+        PlaySound(static_cast<int>(SoundBank::Sound::Move));
         SetViewMode(id);
         emit PreferencesChanged();
     });
@@ -1415,6 +1574,7 @@ void HomeView::BuildUi() {
         chip_row->addWidget(chip);
     }
     connect(quick_group, &QButtonGroup::idClicked, this, [this](int id) {
+        PlaySound(static_cast<int>(SoundBank::Sound::Move));
         SetQuickFilter(id);
         emit PreferencesChanged();
     });
@@ -1477,11 +1637,14 @@ void HomeView::BuildUi() {
             [this](const QModelIndex&, const QModelIndex&) {
                 UpdateHero();
                 carousel->Refresh(true);
+                if (isVisible()) {
+                    PlaySound(static_cast<int>(SoundBank::Sound::Move));
+                }
             });
     connect(grid, &QListView::activated, this, [this](const QModelIndex& index) {
         const int row = index.data(GameRowRole).toInt();
         if (row >= 0 && row < static_cast<int>(games.size())) {
-            emit GameActivated(games[row].path);
+            RequestLaunch(games[row].path);
         }
     });
     connect(grid, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
@@ -1552,6 +1715,7 @@ void HomeView::BuildUi() {
     clock_timer->setInterval(15000);
     connect(clock_timer, &QTimer::timeout, this, [this] { UpdateClock(); });
     clock_timer->start();
+    curtain = new Curtain(this, this);
     ApplyViewMode();
     UpdateHints();
 }
@@ -1603,6 +1767,7 @@ void HomeView::RebuildStyleSheet() {
 }
 #homeRoot QPushButton#roundButton:hover, #homeRoot QPushButton#topButton:hover { background: #FFFFFF; }
 #homeRoot QPushButton#roundButton:pressed, #homeRoot QPushButton#topButton:pressed { background: #E6EEF8; }
+#homeRoot QPushButton#topButton:checked { background: #DCEBFB; border-color: @accent@; }
 #homeRoot QPushButton#roundButton:checked { background: #FFF6D6; border-color: rgba(245, 179, 1, 140); }
 #homeRoot QPushButton#sortPill {
     background: #FFFFFF;
@@ -1711,6 +1876,8 @@ void HomeView::SetGames(std::vector<GameInfo> new_games) {
 }
 
 void HomeView::RefreshModel() {
+    const bool was_muted = sound_mute;
+    sound_mute = true;
     const qulonglong current_id = CurrentGame() != nullptr ? CurrentGame()->program_id : 0;
 
     UpdateQuickCounts();
@@ -1747,6 +1914,7 @@ void HomeView::RefreshModel() {
     if (select_row >= 0) {
         grid->setCurrentIndex(model->index(select_row, 0));
     }
+    sound_mute = was_muted;
     UpdateHero();
 }
 
@@ -1794,6 +1962,8 @@ void HomeView::SetSortMode(SortMode mode) {
 }
 
 int HomeView::SetFilter(const QString& text) {
+    const bool was_muted = sound_mute;
+    sound_mute = true;
     filter_text = text.simplified().toLower();
     const QStringList words = filter_text.split(QLatin1Char(' '), Qt::SkipEmptyParts);
 
@@ -1835,6 +2005,7 @@ int HomeView::SetFilter(const QString& text) {
         }
     }
     carousel->Refresh(false);
+    sound_mute = was_muted;
     return visible;
 }
 
@@ -1918,6 +2089,7 @@ void HomeView::SetViewMode(int mode) {
     UpdateGridMetrics();
     ApplyViewMode();
     UpdateHints();
+    UpdateHeroSize();
     carousel->Refresh(false);
     FocusActiveView();
 }
@@ -1964,6 +2136,7 @@ bool HomeView::HandleShortcut(QKeyEvent* event) {
     switch (event->key()) {
     case Qt::Key_F:
         if (const GameInfo* game = CurrentGame()) {
+            PlaySound(static_cast<int>(SoundBank::Sound::Favorite));
             emit FavoriteToggleRequested(game->program_id);
         }
         return true;
@@ -1983,11 +2156,12 @@ bool HomeView::HandleShortcut(QKeyEvent* event) {
         return true;
     case Qt::Key_Escape:
     case Qt::Key_Backspace:
+        PlaySound(static_cast<int>(SoundBank::Sound::Back));
         dock_home->click();
         return true;
     case Qt::Key_Space:
         if (const GameInfo* game = CurrentGame()) {
-            emit GameActivated(game->path);
+            RequestLaunch(game->path);
         }
         return true;
     default:
@@ -2003,9 +2177,75 @@ void HomeView::keyPressEvent(QKeyEvent* event) {
     QWidget::keyPressEvent(event);
 }
 
+void HomeView::SetSoundOptions(const QString& dir, bool enabled) {
+    if (sounds == nullptr) {
+        sounds = new SoundBank(dir, this);
+    }
+    sounds->SetEnabled(enabled);
+}
+
+void HomeView::SetConsoleMode(bool enabled) {
+    console_button->setChecked(enabled);
+}
+
+void HomeView::PlaySound(int sound) {
+    if (sounds != nullptr && !sound_mute) {
+        sounds->Play(static_cast<SoundBank::Sound>(sound));
+    }
+}
+
+void HomeView::RequestLaunch(const QString& path) {
+    if (launching || path.isEmpty()) {
+        return;
+    }
+    const GameInfo* found = nullptr;
+    for (const GameInfo& game : games) {
+        if (game.path == path) {
+            found = &game;
+            break;
+        }
+    }
+    if (found == nullptr || !isVisible() || width() < 300 || height() < 300) {
+        emit GameActivated(path);
+        return;
+    }
+    if (sounds != nullptr) {
+        sounds->Play(SoundBank::Sound::Launch);
+    }
+    // De onde a capa "sai": o centro do carrossel, o destaque ou a celula da grade.
+    QRectF from(width() / 2.0 - 60, height() / 2.0 - 60, 120, 120);
+    if (carousel->isVisible()) {
+        const QPointF c = carousel->mapTo(this, QPoint(carousel->width() / 2, 18 + 78));
+        from = QRectF(c.x() - 78, c.y() - 78, 156, 156);
+    } else if (hero_art->isVisible() && hero_panel->isVisible()) {
+        const QPointF c = hero_art->mapTo(this, hero_art->rect().center());
+        from = QRectF(c.x() - 85, c.y() - 85, 170, 170);
+    } else if (grid->currentIndex().isValid()) {
+        const QRect cell = grid->visualRect(grid->currentIndex());
+        const QPointF c = grid->viewport()->mapTo(this, cell.center());
+        from = QRectF(c.x() - kIconSize / 2.0, c.y() - kIconSize / 2.0 - 12, kIconSize, kIconSize);
+    }
+    launching = true;
+    curtain->StartLaunch(*found, from, [this, path] {
+        emit GameActivated(path);
+        // Se o jogo nao abrir (erro, cancelado), a tela volta ao normal.
+        QTimer::singleShot(2500, this, [this] {
+            curtain->FadeOut(450);
+            launching = false;
+        });
+    });
+}
+
 void HomeView::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     QTimer::singleShot(0, this, [this] { FocusActiveView(); });
+    if (!curtain->IntroPlayed()) {
+        curtain->StartIntro();
+        if (sounds != nullptr) {
+            sounds->Play(SoundBank::Sound::Startup);
+        }
+        QTimer::singleShot(1200, this, [this] { sound_mute = false; });
+    }
 }
 
 void HomeView::UpdateGridMetrics() {
@@ -2171,11 +2411,19 @@ void HomeView::paintEvent(QPaintEvent*) {
 
 void HomeView::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
+    if (curtain != nullptr && curtain->isVisible()) {
+        curtain->setGeometry(rect());
+    }
+    UpdateHeroSize();
+}
+
+void HomeView::UpdateHeroSize() {
     // Em janelas estreitas a arte do jogo some para dar espaco ao texto.
     // O destaque ocupa cerca de 29% da altura, para sobrar espaco para a grade.
     // Em janelas baixas ele fica compacto: so titulo e botoes.
     const bool was_compact = compact;
-    compact = height() < 760;
+    // O carrossel precisa de mais altura (capa grande + titulo), entao o destaque compacta antes.
+    compact = height() < (view_mode == 0 ? 860 : 760);
     const int hero_height =
         compact ? 168 : std::clamp(static_cast<int>(height() * 0.29), 232, 300);
     hero_panel->setFixedHeight(hero_height + kShadowTop + kShadowBottom);

@@ -101,6 +101,8 @@ public:
 
     /// Alterna entre a tela inicial estilo HOME e a lista classica.
     void SetHomeMode(bool enable, bool persist = true);
+    /// Mostra no botao da tela inicial se o modo console esta ativo.
+    void SetConsoleModeChecked(bool checked);
     /// Reaplica cor de destaque e modo de exibicao a partir das configuracoes.
     void ApplyHomeSettings();
     bool IsHomeMode() const {
@@ -124,6 +126,7 @@ signals:
     void PopulatingCompleted();
     void OpenSettingsRequested();
     void HomeModeChanged(bool enabled);
+    void ConsoleModeRequested();
 #ifdef ENABLE_DEVELOPER_OPTIONS
     void StartingLaunchStressTest(const QString& game_path);
 #endif

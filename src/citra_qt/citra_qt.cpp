@@ -495,6 +495,12 @@ GMainWindow::GMainWindow(Core::System& system_)
 
     show();
 
+    ui->action_Console_Mode->setChecked(UISettings::values.console_mode.GetValue());
+    game_list->SetConsoleModeChecked(UISettings::values.console_mode.GetValue());
+    if (UISettings::values.console_mode.GetValue()) {
+        QTimer::singleShot(0, this, [this] { ApplyConsoleMode(); });
+    }
+
     // If the theme is updated before show() it doesn't apply properly, so do it again here.
     // We still need the earlier call to make sure that the icons are set up correctly in the
     // game list.
@@ -1089,6 +1095,9 @@ void GMainWindow::ConnectAppEvents() {
 void GMainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::GameChosen, this, &GMainWindow::OnGameListLoadFile);
     connect(game_list, &GameList::OpenSettingsRequested, this, &GMainWindow::OnConfigure);
+    connect(game_list, &GameList::ConsoleModeRequested, this,
+            [this] { ui->action_Console_Mode->toggle(); });
+    connect(ui->action_Console_Mode, &QAction::toggled, this, &GMainWindow::OnToggleConsoleMode);
     connect(game_list, &GameList::HomeModeChanged, ui->action_Show_Home_Screen,
             &QAction::setChecked);
     connect(ui->action_Show_Home_Screen, &QAction::triggered, game_list,
@@ -1662,6 +1671,11 @@ void GMainWindow::BootGame(const QString& filename) {
     loading_screen->show();
 
     emulation_running = true;
+    if (UISettings::values.console_mode.GetValue() && !ui->action_Fullscreen->isChecked()) {
+        // No modo console o jogo sempre abre em tela cheia (e a tela cheia some ao sair).
+        console_forced_fullscreen = true;
+        ui->action_Fullscreen->setChecked(true);
+    }
     if (ui->action_Fullscreen->isChecked()) {
         ShowFullscreen();
     }
@@ -2750,6 +2764,38 @@ void GMainWindow::OnStopGame() {
     graphics_api_button->setEnabled(true);
     Settings::RestoreGlobalState(false);
     UpdateStatusButtons();
+    if (console_forced_fullscreen) {
+        console_forced_fullscreen = false;
+        ui->action_Fullscreen->setChecked(false);
+    }
+    ApplyConsoleMode(); // volta para o HOME em tela cheia
+}
+
+void GMainWindow::OnToggleConsoleMode(bool checked) {
+    UISettings::values.console_mode.SetValue(checked);
+    game_list->SetConsoleModeChecked(checked);
+    ApplyConsoleMode();
+}
+
+void GMainWindow::ApplyConsoleMode() {
+    if (emulation_running) {
+        return; // durante o jogo valem as regras normais de tela cheia
+    }
+    if (UISettings::values.console_mode.GetValue()) {
+        if (!console_applied) {
+            console_saved_geometry = saveGeometry();
+            console_applied = true;
+        }
+        ui->menubar->hide();
+        statusBar()->hide();
+        showFullScreen();
+    } else if (console_applied) {
+        console_applied = false;
+        ui->menubar->show();
+        statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
+        showNormal();
+        restoreGeometry(console_saved_geometry);
+    }
 }
 
 void GMainWindow::OnLoadComplete() {
@@ -4537,7 +4583,10 @@ void GMainWindow::UpdateWindowTitle() {
 }
 
 void GMainWindow::UpdateUISettings() {
-    if (!ui->action_Fullscreen->isChecked()) {
+    if (console_applied && !console_saved_geometry.isEmpty()) {
+        // Em modo console a janela esta em tela cheia: guarda o tamanho "normal" anterior.
+        UISettings::values.geometry = console_saved_geometry;
+    } else if (!ui->action_Fullscreen->isChecked()) {
         UISettings::values.geometry = saveGeometry();
         UISettings::values.renderwindow_geometry = render_window->saveGeometry();
     }
@@ -4550,7 +4599,8 @@ void GMainWindow::UpdateUISettings() {
     UISettings::values.microprofile_visible = microProfileDialog->isVisible();
 #endif
     UISettings::values.single_window_mode = ui->action_Single_Window_Mode->isChecked();
-    UISettings::values.fullscreen = ui->action_Fullscreen->isChecked();
+    UISettings::values.fullscreen =
+        ui->action_Fullscreen->isChecked() && !console_forced_fullscreen;
     UISettings::values.display_titlebar = ui->action_Display_Dock_Widget_Headers->isChecked();
     UISettings::values.show_filter_bar = ui->action_Show_Filter_Bar->isChecked();
     UISettings::values.show_status_bar = ui->action_Show_Status_Bar->isChecked();

@@ -121,6 +121,10 @@ struct Values {
     Settings::Setting<std::string> home_bg_bottom{"", Settings::Keys::homeBgBottom};
     // Baixa as capas dos jogos automaticamente (GameTDB) e guarda em cache.
     Settings::Setting<bool> home_auto_covers{true, Settings::Keys::homeAutoCovers};
+    // Modo console: janela em tela cheia, sem menus, e os jogos abrem em tela cheia.
+    Settings::Setting<bool> console_mode{false, Settings::Keys::consoleMode};
+    // Sons curtos de navegacao na tela inicial.
+    Settings::Setting<bool> home_sounds{true, Settings::Keys::homeSounds};
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

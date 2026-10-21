@@ -140,6 +140,8 @@ add_library(citra_qt STATIC EXCLUDE_FROM_ALL
     home/home_view.cpp
     home/home_view.h
     home/popup_style.h
+    home/sound_bank.cpp
+    home/sound_bank.h
     hotkeys.cpp
     hotkeys.h
     hotkey_monitor.cpp

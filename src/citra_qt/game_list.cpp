@@ -380,6 +380,11 @@ static QString GameKey(u64 program_id, const QString& game_path) {
 }
 
 // Estado so da tela inicial (ultimo jogado). Fica ao lado das capas, na pasta do usuario.
+static QString HomeSoundsPath() {
+    return QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+           QStringLiteral("sounds");
+}
+
 static QString HomeStatePath() {
     return QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
            QStringLiteral("home_state.ini");
@@ -447,6 +452,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
                                   prefs.value(QStringLiteral("view/sort"), 0).toInt(),
                                   prefs.value(QStringLiteral("view/quick"), 0).toInt());
     }
+    home_view->SetSoundOptions(HomeSoundsPath(), UISettings::values.home_sounds.GetValue());
     cover_fetcher = new Home::CoverFetcher(
         QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
             QStringLiteral("covers_auto"),
@@ -470,6 +476,8 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
             &GameList::PopupHomeContextMenu);
     connect(home_view, &Home::HomeView::FavoriteToggleRequested, this,
             [this](qulonglong id) { ToggleFavorite(id); });
+    connect(home_view, &Home::HomeView::ConsoleModeRequested, this,
+            &GameList::ConsoleModeRequested);
     connect(home_view, &Home::HomeView::SettingsRequested, this,
             &GameList::OpenSettingsRequested);
     connect(home_view, &Home::HomeView::AddFolderRequested, this, &GameList::AddDirectory);
@@ -485,6 +493,10 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
 
     connect(this, &GameList::GameChosen, this, &GameList::RecordLastPlayed);
     SetHomeMode(UISettings::values.game_list_use_home_view.GetValue());
+}
+
+void GameList::SetConsoleModeChecked(bool checked) {
+    home_view->SetConsoleMode(checked);
 }
 
 void GameList::SetHomeMode(bool enable, bool persist) {
@@ -515,6 +527,7 @@ void GameList::ApplyHomeSettings() {
     home_view->SetBackgroundColor(ColorFromSetting(UISettings::values.home_bg_top.GetValue()));
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    home_view->SetSoundOptions(HomeSoundsPath(), UISettings::values.home_sounds.GetValue());
     const bool use_home = UISettings::values.game_list_use_home_view.GetValue();
     if (use_home != home_mode) {
         SetHomeMode(use_home);

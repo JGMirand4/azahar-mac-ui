@@ -895,6 +895,8 @@ void QtConfig::ReadUIGameListValues() {
     ReadBasicSetting(UISettings::values.home_bg_top);
     ReadBasicSetting(UISettings::values.home_bg_bottom);
     ReadBasicSetting(UISettings::values.home_auto_covers);
+    ReadBasicSetting(UISettings::values.console_mode);
+    ReadBasicSetting(UISettings::values.home_sounds);
 
     ReadBasicSetting(UISettings::values.show_compat_column);
     ReadBasicSetting(UISettings::values.show_region_column);
@@ -1437,6 +1439,8 @@ void QtConfig::SaveUIGameListValues() {
     WriteBasicSetting(UISettings::values.home_bg_top);
     WriteBasicSetting(UISettings::values.home_bg_bottom);
     WriteBasicSetting(UISettings::values.home_auto_covers);
+    WriteBasicSetting(UISettings::values.console_mode);
+    WriteBasicSetting(UISettings::values.home_sounds);
 
     WriteBasicSetting(UISettings::values.show_compat_column);
     WriteBasicSetting(UISettings::values.show_region_column);

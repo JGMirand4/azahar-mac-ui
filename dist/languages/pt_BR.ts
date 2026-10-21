@@ -7960,6 +7960,10 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Aleatório</translation>
     </message>
     <message>
+        <source>Console mode (fullscreen)</source>
+        <translation>Modo console (tela cheia)</translation>
+    </message>
+    <message>
         <source>Surprise me</source>
         <translation>Surpreenda-me</translation>
     </message>
@@ -8000,6 +8004,10 @@ Adicione a pasta onde estão seus jogos.</translation>
 </context>
 <context>
     <name>ConfigureUi</name>
+    <message>
+        <source>Play navigation sounds</source>
+        <translation>Tocar sons de navegação</translation>
+    </message>
     <message>
         <source>Download game covers automatically</source>
         <translation>Baixar as capas dos jogos automaticamente</translation>
@@ -8046,6 +8054,10 @@ Adicione a pasta onde estão seus jogos.</translation>
     <message>
         <source>Show Home Screen</source>
         <translation>Mostrar tela inicial</translation>
+    </message>
+    <message>
+        <source>Console Mode</source>
+        <translation>Modo console</translation>
     </message>
 </context>
 <context>

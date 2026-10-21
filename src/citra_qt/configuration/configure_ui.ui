@@ -200,6 +200,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="toggle_home_sounds">
+          <property name="text">
+           <string>Play navigation sounds</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QCheckBox" name="toggle_auto_covers">
           <property name="text">
            <string>Download game covers automatically</string>
