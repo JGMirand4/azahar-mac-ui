@@ -224,6 +224,7 @@ private:
     QPushButton* favorite_button = nullptr;
     QPushButton* more_button = nullptr;
     QPushButton* surprise_button = nullptr;
+    QLabel* console_emblem = nullptr;
     ListHeader* list_header = nullptr;
     QWidget* grid_panel_widget = nullptr;
     QVariantAnimation* tint_anim = nullptr;

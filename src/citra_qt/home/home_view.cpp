@@ -92,7 +92,7 @@ QColor AverageColor(const QPixmap& pixmap, const QColor& fallback) {
     return color.alpha() < 16 ? fallback : color;
 }
 
-enum class Glyph { Gear, Star, Dots, Home, Grid, Search, Folder, Plus, Sort, Chevron, List, Carousel, Fullscreen, Dice };
+enum class Glyph { Gear, Star, Dots, Home, Grid, Search, Folder, Plus, Sort, Chevron, List, Carousel, Fullscreen, Dice, Console };
 
 QPolygonF StarPolygon() {
     return QPolygonF({QPointF(12, 2.5), QPointF(15.1, 8.8), QPointF(22, 9.8), QPointF(17, 14.7),
@@ -218,6 +218,39 @@ QPixmap MakeGlyph(Glyph glyph, const QColor& color, int size, qreal dpr, bool fi
             }
         }
         break;
+    case Glyph::Console: {
+        // Console portatil aberto (so contornos e telas): o interior fica vazado, sem preenchimento.
+        const QColor ink = color;
+        p.setPen(QPen(ink, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(QRectF(3.8, 1.8, 16.4, 10.2), 2.4, 2.4);   // tampa
+        p.drawRoundedRect(QRectF(3.8, 12.9, 16.4, 9.3), 2.4, 2.4);   // base
+        p.setPen(Qt::NoPen);
+        p.setBrush(ink);
+        p.drawRoundedRect(QRectF(6.7, 3.6, 10.6, 6.2), 0.8, 0.8);    // tela de cima
+        p.drawRoundedRect(QRectF(8.4, 14.4, 7.2, 4.9), 0.8, 0.8);    // tela de baixo
+        p.drawEllipse(QPointF(12, 2.9), 0.32, 0.32);                  // camera
+        for (const qreal y : {6.0, 7.0, 8.0}) {                       // alto-falantes
+            p.drawEllipse(QPointF(5.3, y), 0.22, 0.22);
+            p.drawEllipse(QPointF(18.7, y), 0.22, 0.22);
+        }
+        p.setPen(QPen(ink, 1.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QPointF(6.0, 15.2), 1.35, 1.35);                // direcional analogico
+        p.drawLine(QPointF(4.9, 18.6), QPointF(7.1, 18.6));           // cruzeta
+        p.drawLine(QPointF(6.0, 17.5), QPointF(6.0, 19.7));
+        for (const QPointF& b : {QPointF(18.0, 14.2), QPointF(18.0, 16.4), QPointF(16.9, 15.3),
+                                 QPointF(19.1, 15.3)}) {              // A B X Y
+            p.drawEllipse(b, 0.55, 0.55);
+        }
+        p.setPen(Qt::NoPen);
+        p.setBrush(ink);
+        for (const qreal x : {9.0, 11.2, 13.4}) {                     // botoes de baixo
+            p.drawRoundedRect(QRectF(x, 20.2, 1.8, 0.8), 0.3, 0.3);
+        }
+        p.drawRect(QRectF(18.4, 19.4, 0.9, 0.9));
+        break;
+    }
     case Glyph::Dice:
         p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(QRectF(3.5, 3.5, 17, 17), 4.5, 4.5);
@@ -1725,6 +1758,11 @@ void HomeView::BuildUi() {
     right_layout->addWidget(battery_pill);
     right_layout->addWidget(console_button);
     right_layout->addWidget(settings_button);
+    console_emblem = new QLabel(right);
+    console_emblem->setFixedSize(50, 50);
+    console_emblem->setAlignment(Qt::AlignCenter);
+    console_emblem->setPixmap(MakeGlyph(Glyph::Console, theme.on_bg, 46, dpr));
+    right_layout->addWidget(console_emblem);
     top_layout->addWidget(right, 0, 2, Qt::AlignRight | Qt::AlignVCenter);
     root->addWidget(top);
 
@@ -2118,6 +2156,9 @@ void HomeView::BuildUi() {
 }
 
 void HomeView::RebuildStyleSheet() {
+    if (console_emblem != nullptr) {
+        console_emblem->setPixmap(MakeGlyph(Glyph::Console, theme.on_bg, 46, devicePixelRatioF()));
+    }
     if (surprise_button != nullptr) {
         surprise_button->setIcon(MakeIcon(Glyph::Dice, theme.accent, 16, devicePixelRatioF()));
     }
