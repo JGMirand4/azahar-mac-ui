@@ -72,6 +72,7 @@
 #endif
 #include "citra_qt/game_list.h"
 #include "citra_qt/home/home_theme.h"
+#include "citra_qt/home/popup_style.h"
 #include "citra_qt/hotkeys.h"
 #include "citra_qt/loading_screen.h"
 #include "citra_qt/movie/movie_play_dialog.h"
@@ -4294,6 +4295,14 @@ void GMainWindow::UpdateUITheme() {
 
     const QString& current_theme = UISettings::values.theme;
     const bool is_default_theme = (current_theme == default_system_theme);
+
+    // Menus e listas suspensas arredondados (so no tema Home 3DS).
+    static Home::PopupRounder* popup_rounder = nullptr;
+    if (popup_rounder == nullptr) {
+        popup_rounder = new Home::PopupRounder(qApp);
+        qApp->installEventFilter(popup_rounder);
+    }
+    popup_rounder->SetEnabled(current_theme == QStringLiteral("home3ds"));
     QStringList theme_paths(default_theme_paths);
 
     if (is_default_theme || current_theme.isEmpty()) {
@@ -4301,8 +4310,11 @@ void GMainWindow::UpdateUITheme() {
         QFile f(theme_uri);
         if (f.open(QFile::ReadOnly | QFile::Text)) {
             QTextStream ts(&f);
-            qApp->setStyleSheet(ts.readAll());
-            setStyleSheet(ts.readAll());
+            // Le o arquivo uma unica vez: a segunda leitura voltava vazia e a janela principal
+            // ficava com o estilo do tema anterior.
+            const QString default_qss = ts.readAll();
+            qApp->setStyleSheet(default_qss);
+            setStyleSheet(default_qss);
         } else {
             LOG_ERROR(Frontend,
                       "Unable to open default stylesheet, falling back to empty stylesheet");

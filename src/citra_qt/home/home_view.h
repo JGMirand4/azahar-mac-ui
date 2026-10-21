@@ -78,6 +78,8 @@ public:
     /// Remove o widget de busca do painel (sem destrui-lo).
     void TakeSearchWidget();
     void SetSortMode(SortMode mode);
+    /// Alterna entre a grade de capas e a lista detalhada (continua dentro da tela inicial).
+    void SetListMode(bool enabled);
 
     /// Troca a cor de destaque e deriva o restante da paleta.
     void SetAccentColor(const QColor& accent);
@@ -104,6 +106,7 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
 private:
@@ -116,6 +119,8 @@ private:
     void UpdateHero();
     void UpdateClock();
     void ApplySort();
+    void UpdateGridMetrics();
+    void SetQuickFilter(int mode);
     void ShowContextMenuForCurrent(const QPoint& global_pos);
     QString SortModeText() const;
 
@@ -127,6 +132,10 @@ private:
     SortMode sort_mode = SortMode::Recent;
     bool compact = false;
     bool library_mode = false;
+    bool list_mode = false;
+    int quick_filter = 0; // 0 = todos, 1 = favoritos, 2 = ja jogados
+    QPushButton* grid_mode_button = nullptr;
+    QPushButton* list_mode_button = nullptr;
     QString filter_text;
 
     QStandardItemModel* model = nullptr;

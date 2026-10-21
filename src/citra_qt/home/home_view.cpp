@@ -35,6 +35,7 @@ namespace {
 constexpr int kIconSize = 96;
 constexpr int kCellWidth = 150;
 constexpr int kCellHeight = 156;
+constexpr int kRowHeight = 76;
 constexpr int kShadowLeft = 14;
 constexpr int kShadowTop = 8;
 constexpr int kShadowRight = 14;
@@ -419,16 +420,8 @@ public:
         });
     }
 
-    void SetGame(const QPixmap& icon_, const QString& title, bool custom_cover_ = false) {
+    void SetGame(const QPixmap& icon_, const QString& title, bool = false) {
         icon = icon_;
-        custom_cover = custom_cover_;
-        // Fundo: a propria arte do jogo bem borrada (reduz e amplia suavemente).
-        backdrop = QPixmap();
-        if (!icon.isNull()) {
-            const QImage small = icon.toImage().scaled(
-                QSize(18, 18), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-            backdrop = QPixmap::fromImage(small);
-        }
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
         base = AverageColor(icon, theme->accent_light);
         animation->stop();
@@ -448,47 +441,25 @@ protected:
         clip.addRoundedRect(r, 22, 22);
         p.setClipPath(clip);
 
-        if (custom_cover && !icon.isNull()) {
-            // Capa personalizada: preenche todo o banner, sem distorcer.
-            p.setOpacity(0.35 + 0.65 * fade);
-            p.drawPixmap(r, icon, AspectFillSource(icon, r));
-            p.setOpacity(1.0);
-            QLinearGradient shade(QPointF(r.left(), r.top() + r.height() * 0.55), r.bottomLeft());
-            shade.setColorAt(0.0, QColor(0, 0, 0, 0));
-            shade.setColorAt(1.0, QColor(0, 0, 0, 60));
-            p.fillRect(r, shade);
-            return;
-        }
-
-        if (!backdrop.isNull()) {
-            p.drawPixmap(r, backdrop, AspectFillSource(backdrop, r));
-        } else {
-            QLinearGradient plain(r.topLeft(), r.bottomRight());
-            plain.setColorAt(0.0, theme->accent_light);
-            plain.setColorAt(1.0, theme->accent);
-            p.fillRect(r, plain);
-        }
-        // Veu claro para o icone destacar e o texto ao lado continuar legivel.
-        QLinearGradient veil(r.topLeft(), r.bottomRight());
-        veil.setColorAt(0.0, QColor(255, 255, 255, 120));
-        veil.setColorAt(1.0, QColor(255, 255, 255, 30));
-        p.fillRect(r, veil);
-
-        p.setOpacity(0.35 + 0.65 * fade);
-        p.setOpacity(1.0);
-
-        QLinearGradient gloss(r.topLeft(), QPointF(r.left(), r.top() + r.height() * 0.4));
-        gloss.setColorAt(0.0, QColor(255, 255, 255, 60));
-        gloss.setColorAt(1.0, QColor(255, 255, 255, 0));
-        p.fillRect(r, gloss);
-
-        // Icone do jogo em tamanho grande.
-        const qreal size = std::min<qreal>(r.height() * 0.6, 168.0) * (0.9 + 0.1 * fade);
-        const QRectF icon_rect(r.center().x() - size / 2, r.center().y() - size / 2 - 6, size,
-                               size);
-        const qreal radius = size * 0.28;
-        p.setOpacity(fade);
+        // Fundo: uma cor lisa derivada da capa. Nada de arte esticada ou borrada.
+        QLinearGradient bg(r.topLeft(), r.bottomRight());
+        bg.setColorAt(0.0, Theme::Mix(base, Qt::white, 0.90f));
+        bg.setColorAt(1.0, Theme::Mix(base, Qt::white, 0.72f));
+        p.fillRect(r, bg);
         p.setPen(Qt::NoPen);
+        p.setBrush(QColor(255, 255, 255, 70));
+        p.drawEllipse(QPointF(r.right() - r.width() * 0.12, r.top() + r.height() * 0.12),
+                      r.height() * 0.55, r.height() * 0.55);
+        p.setBrush(QColor(255, 255, 255, 45));
+        p.drawEllipse(QPointF(r.left() + r.width() * 0.1, r.bottom()), r.height() * 0.45,
+                      r.height() * 0.45);
+
+        // Capa em tamanho normal, quadrada, no centro.
+        const qreal size = std::min<qreal>(r.height() * 0.66, 176.0) * (0.92 + 0.08 * fade);
+        const QRectF icon_rect(r.center().x() - size / 2, r.center().y() - size / 2 - 4, size,
+                               size);
+        const qreal radius = size * 0.2;
+        p.setOpacity(fade);
         for (int i = 0; i < 8; ++i) {
             QColor c = theme->shadow;
             c.setAlphaF(0.06);
@@ -519,8 +490,6 @@ protected:
 private:
     const Theme* theme;
     QPixmap icon;
-    QPixmap backdrop;
-    bool custom_cover = false;
     QString initial;
     QColor base;
     QVariantAnimation* animation = nullptr;
@@ -533,6 +502,9 @@ public:
     CardDelegate(HomeView* view_, QObject* parent) : QStyledItemDelegate(parent), view(view_) {}
 
     QSize sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const override {
+        if (view->list_mode) {
+            return QSize(std::max(240, view->grid->viewport()->width()), kRowHeight);
+        }
         return QSize(kCellWidth, kCellHeight);
     }
 
@@ -546,6 +518,11 @@ public:
         const Theme& theme = view->theme;
         const bool selected = option.state & QStyle::State_Selected;
         const bool hover = option.state & QStyle::State_MouseOver;
+
+        if (view->list_mode) {
+            PaintRow(p, option.rect, game, theme, selected, hover);
+            return;
+        }
 
         p->save();
         p->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform |
@@ -633,6 +610,105 @@ public:
     }
 
 private:
+    /// Linha da lista detalhada: capa pequena, titulo/subtitulo e colunas a direita.
+    static void PaintRow(QPainter* p, const QRect& cell, const GameInfo& game, const Theme& theme,
+                         bool selected, bool hover) {
+        p->save();
+        p->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform |
+                          QPainter::TextAntialiasing);
+        const QRectF row = QRectF(cell).adjusted(4, 4, -4, -4);
+        p->setPen(Qt::NoPen);
+        if (selected) {
+            p->setBrush(Theme::Mix(Qt::white, theme.accent, 0.10f));
+            p->setPen(QPen(theme.accent, 1.5));
+        } else if (hover) {
+            p->setBrush(QColor(0xEE, 0xF3, 0xFA));
+        } else {
+            p->setBrush(QColor(0xF7, 0xF9, 0xFC));
+        }
+        p->drawRoundedRect(row.adjusted(0.75, 0.75, -0.75, -0.75), 18, 18);
+        p->setPen(Qt::NoPen);
+
+        const qreal icon_side = row.height() - 16;
+        const QRectF icon_rect(row.left() + 10, row.top() + 8, icon_side, icon_side);
+        QPainterPath clip;
+        clip.addRoundedRect(icon_rect, 13, 13);
+        p->save();
+        p->setClipPath(clip);
+        if (!game.icon.isNull()) {
+            p->drawPixmap(icon_rect, game.icon, AspectFillSource(game.icon, icon_rect));
+        } else {
+            QLinearGradient fill(icon_rect.topLeft(), icon_rect.bottomRight());
+            fill.setColorAt(0.0, theme.accent_light);
+            fill.setColorAt(1.0, theme.accent);
+            p->fillRect(icon_rect, fill);
+            p->setPen(Qt::white);
+            p->setFont(RoundedFont(22, QFont::Bold));
+            p->drawText(icon_rect, Qt::AlignCenter,
+                        game.title.isEmpty() ? QString() : game.title.left(1).toUpper());
+        }
+        DrawCaseSpine(p, icon_rect);
+        p->restore();
+
+        // Colunas da direita (somem em janelas estreitas).
+        qreal right = row.right() - 18;
+        const auto column = [&](qreal width, const QString& text, int flags, const QColor& color,
+                                const QFont& font) {
+            if (right - width < row.left() + 300 || text.isEmpty()) {
+                return;
+            }
+            p->setFont(font);
+            p->setPen(color);
+            p->drawText(QRectF(right - width, row.top(), width, row.height()),
+                        flags | Qt::AlignVCenter, text);
+            right -= width + 10;
+        };
+        column(110, game.play_time_text, Qt::AlignRight, theme.text_muted,
+               BodyFont(13, QFont::DemiBold));
+        column(80, game.size_text, Qt::AlignRight, theme.text_muted, BodyFont(13, QFont::DemiBold));
+        column(54, game.region, Qt::AlignHCenter, theme.text_muted, BodyFont(13, QFont::Bold));
+        if (right - 130 > row.left() + 300 && !game.compat_text.isEmpty()) {
+            p->setPen(Qt::NoPen);
+            p->setBrush(QColor(CompatColor(game.compat_key)));
+            p->drawEllipse(QPointF(right - 130 + 6, row.center().y()), 5, 5);
+            p->setFont(BodyFont(13, QFont::DemiBold));
+            p->setPen(theme.text_body);
+            p->drawText(QRectF(right - 130 + 18, row.top(), 112, row.height()),
+                        Qt::AlignLeft | Qt::AlignVCenter, game.compat_text);
+            right -= 140;
+        }
+
+        // Titulo e subtitulo.
+        const qreal text_left = icon_rect.right() + 16;
+        const qreal star_space = game.favorite ? 26.0 : 0.0;
+        const qreal text_width = std::max<qreal>(60.0, right - text_left - 8 - star_space);
+        const QFont title_font = RoundedFont(16, QFont::DemiBold);
+        const QFontMetrics title_metrics(title_font);
+        const QString title = title_metrics.elidedText(game.title, Qt::ElideRight,
+                                                       static_cast<int>(text_width));
+        p->setFont(title_font);
+        p->setPen(selected ? theme.accent : theme.text);
+        p->drawText(QRectF(text_left, row.top() + 12, text_width, 26),
+                    Qt::AlignLeft | Qt::AlignVCenter, title);
+        if (game.favorite) {
+            p->save();
+            p->translate(text_left + title_metrics.horizontalAdvance(title) + 8,
+                         row.top() + 14);
+            p->scale(18.0 / 24.0, 18.0 / 24.0);
+            p->setPen(QPen(Qt::white, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p->setBrush(theme.favorite);
+            p->drawPolygon(StarPolygon());
+            p->restore();
+        }
+        p->setFont(BodyFont(13, QFont::Medium));
+        p->setPen(theme.text_muted);
+        p->drawText(QRectF(text_left, row.top() + 38, text_width, 22),
+                    Qt::AlignLeft | Qt::AlignVCenter,
+                    QFontMetrics(BodyFont(13, QFont::Medium))
+                        .elidedText(game.subtitle, Qt::ElideRight, static_cast<int>(text_width)));
+        p->restore();
+    }
+
     HomeView* view;
 };
 
@@ -890,6 +966,28 @@ void HomeView::BuildUi() {
     header->addWidget(grid_title, 0, Qt::AlignVCenter);
     header->addStretch(1);
 
+    // Filtros rapidos: Todos / Favoritos / Ja jogados.
+    auto* quick = new QFrame(grid_panel);
+    quick->setObjectName(QStringLiteral("segment"));
+    auto* quick_layout = new QHBoxLayout(quick);
+    quick_layout->setContentsMargins(3, 3, 3, 3);
+    quick_layout->setSpacing(2);
+    auto* quick_group = new QButtonGroup(this);
+    quick_group->setExclusive(true);
+    const QString quick_names[] = {tr("All"), tr("Favorites"), tr("Played")};
+    for (int i = 0; i < 3; ++i) {
+        auto* chip = new QPushButton(quick_names[i], quick);
+        chip->setObjectName(QStringLiteral("segText"));
+        chip->setCheckable(true);
+        chip->setChecked(i == 0);
+        chip->setCursor(Qt::PointingHandCursor);
+        chip->setFont(BodyFont(13, QFont::Bold));
+        quick_group->addButton(chip, i);
+        quick_layout->addWidget(chip);
+    }
+    connect(quick_group, &QButtonGroup::idClicked, this, [this](int id) { SetQuickFilter(id); });
+    header->addWidget(quick);
+
     sort_button = new QPushButton(grid_panel);
     sort_button->setObjectName(QStringLiteral("sortPill"));
     sort_button->setCursor(Qt::PointingHandCursor);
@@ -913,6 +1011,7 @@ void HomeView::BuildUi() {
     segment_layout->setContentsMargins(3, 3, 3, 3);
     segment_layout->setSpacing(0);
     auto* grid_view_button = new QPushButton(segment);
+    grid_mode_button = grid_view_button;
     grid_view_button->setObjectName(QStringLiteral("segButton"));
     grid_view_button->setCheckable(true);
     grid_view_button->setChecked(true);
@@ -925,12 +1024,22 @@ void HomeView::BuildUi() {
     grid_view_button->setIcon(grid_icon);
     grid_view_button->setIconSize(QSize(16, 16));
     auto* list_view_button = new QPushButton(segment);
+    list_mode_button = list_view_button;
     list_view_button->setObjectName(QStringLiteral("segButton"));
+    list_view_button->setCheckable(true);
     list_view_button->setToolTip(tr("List view"));
     list_view_button->setAccessibleName(tr("List view"));
-    list_view_button->setIcon(MakeIcon(Glyph::List, theme.ink, 16, dpr));
+    QIcon list_icon;
+    list_icon.addPixmap(MakeGlyph(Glyph::List, theme.ink, 16, dpr), QIcon::Normal, QIcon::Off);
+    list_icon.addPixmap(MakeGlyph(Glyph::List, Qt::white, 16, dpr), QIcon::Normal, QIcon::On);
+    list_view_button->setIcon(list_icon);
+    auto* mode_group = new QButtonGroup(this);
+    mode_group->setExclusive(true);
+    mode_group->addButton(grid_view_button);
+    mode_group->addButton(list_view_button);
+    connect(grid_view_button, &QPushButton::clicked, this, [this] { SetListMode(false); });
     list_view_button->setIconSize(QSize(16, 16));
-    connect(list_view_button, &QPushButton::clicked, this, [this] { emit ClassicViewRequested(); });
+    connect(list_view_button, &QPushButton::clicked, this, [this] { SetListMode(true); });
     segment_layout->addWidget(grid_view_button);
     segment_layout->addWidget(list_view_button);
     header->addWidget(segment);
@@ -957,6 +1066,7 @@ void HomeView::BuildUi() {
     grid->setContextMenuPolicy(Qt::CustomContextMenu);
     grid->setItemDelegate(new CardDelegate(this, grid));
     grid->viewport()->setAutoFillBackground(false);
+    grid->viewport()->installEventFilter(this);
     grid_layout->addWidget(grid, 1);
 
     empty_state = new QWidget(grid_panel);
@@ -1124,6 +1234,16 @@ void HomeView::RebuildStyleSheet() {
     min-width: 34px; max-width: 34px; min-height: 32px; max-height: 32px;
 }
 #homeRoot QPushButton#segButton:checked { background: @accent@; }
+#homeRoot QPushButton#segText {
+    background: transparent;
+    border: none;
+    border-radius: 16px;
+    padding: 0px 14px;
+    min-height: 32px; max-height: 32px;
+    color: @ink@;
+}
+#homeRoot QPushButton#segText:hover { background: #EEF3FA; }
+#homeRoot QPushButton#segText:checked { background: @accent@; color: #FFFFFF; }
 #homeRoot QPushButton#dockItem {
     background: transparent;
     border: none;
@@ -1135,6 +1255,9 @@ void HomeView::RebuildStyleSheet() {
 #homeRoot QPushButton#dockItem:hover { background: #EEF3FA; }
 #homeRoot QPushButton#dockItem:checked { background: #FFFFFF; color: @accent@; }
 #homeRoot QListView#gameGrid { background: transparent; border: none; outline: none; }
+#homeRoot QMenu { background: #FFFFFF; border: 1px solid rgba(31, 42, 55, 40); border-radius: 14px; padding: 6px; }
+#homeRoot QMenu::item { padding: 8px 26px 8px 18px; border-radius: 9px; color: @text@; }
+#homeRoot QMenu::item:selected { background: @accent@; color: #FFFFFF; }
 #homeRoot QScrollBar:vertical { background: transparent; width: 10px; margin: 4px 0px; }
 #homeRoot QScrollBar::handle:vertical { background: rgba(31, 42, 55, 70); border-radius: 4px; min-height: 40px; }
 #homeRoot QScrollBar::add-line:vertical, #homeRoot QScrollBar::sub-line:vertical { height: 0px; }
@@ -1281,9 +1404,13 @@ int HomeView::SetFilter(const QString& text) {
              game.path.mid(game.path.lastIndexOf(QLatin1Char('/')) + 1) + QLatin1Char(' ') +
              QStringLiteral("%1").arg(game.program_id, 16, 16, QLatin1Char('0')))
                 .toLower();
-        const bool match = std::all_of(words.begin(), words.end(), [&haystack](const QString& w) {
-            return haystack.contains(w);
-        });
+        const bool quick_ok = quick_filter == 0 || (quick_filter == 1 && game.favorite) ||
+                              (quick_filter == 2 && (game.last_played > 0 ||
+                                                     game.play_time_seconds > 0));
+        const bool match = quick_ok &&
+                           std::all_of(words.begin(), words.end(), [&haystack](const QString& w) {
+                               return haystack.contains(w);
+                           });
         grid->setRowHidden(row, !match);
         if (match) {
             ++visible;
@@ -1335,8 +1462,52 @@ void HomeView::SetFavorite(qulonglong program_id, bool favorite) {
             game.favorite = favorite;
         }
     }
+    SetFilter(filter_text);
     grid->viewport()->update();
     UpdateHero();
+}
+
+void HomeView::SetQuickFilter(int mode) {
+    quick_filter = mode;
+    SetFilter(filter_text);
+}
+
+void HomeView::SetListMode(bool enabled) {
+    list_mode = enabled;
+    if (list_mode_button != nullptr) {
+        list_mode_button->setChecked(enabled);
+        grid_mode_button->setChecked(!enabled);
+    }
+    UpdateGridMetrics();
+}
+
+void HomeView::UpdateGridMetrics() {
+    if (list_mode) {
+        grid->setFlow(QListView::TopToBottom);
+        grid->setWrapping(false);
+        grid->setGridSize(QSize(std::max(240, grid->viewport()->width()), kRowHeight));
+    } else {
+        grid->setFlow(QListView::LeftToRight);
+        grid->setWrapping(true);
+        grid->setGridSize(QSize(kCellWidth, kCellHeight));
+    }
+    grid->doItemsLayout();
+    grid->viewport()->update();
+    const QModelIndex current = grid->currentIndex();
+    if (current.isValid()) {
+        grid->scrollTo(current);
+    }
+}
+
+bool HomeView::eventFilter(QObject* watched, QEvent* event) {
+    if (list_mode && grid != nullptr && watched == grid->viewport() &&
+        event->type() == QEvent::Resize) {
+        const int width = std::max(240, grid->viewport()->width());
+        if (grid->gridSize().width() != width) {
+            grid->setGridSize(QSize(width, kRowHeight));
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void HomeView::SetSearchWidget(QWidget* widget) {

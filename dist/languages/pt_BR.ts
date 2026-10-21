@@ -7944,6 +7944,18 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Jogados recentemente</translation>
     </message>
     <message>
+        <source>All</source>
+        <translation>Todos</translation>
+    </message>
+    <message>
+        <source>Favorites</source>
+        <translation>Favoritos</translation>
+    </message>
+    <message>
+        <source>Played</source>
+        <translation>Jogados</translation>
+    </message>
+    <message>
         <source>LAST PLAYED</source>
         <translation>ÚLTIMO JOGADO</translation>
     </message>
