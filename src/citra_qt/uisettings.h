@@ -119,6 +119,8 @@ struct Values {
     // Cores do degrade de fundo da tela inicial; vazio = automatico (derivado do destaque).
     Settings::Setting<std::string> home_bg_top{"", Settings::Keys::homeBgTop};
     Settings::Setting<std::string> home_bg_bottom{"", Settings::Keys::homeBgBottom};
+    // Baixa as capas dos jogos automaticamente (GameTDB) e guarda em cache.
+    Settings::Setting<bool> home_auto_covers{true, Settings::Keys::homeAutoCovers};
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

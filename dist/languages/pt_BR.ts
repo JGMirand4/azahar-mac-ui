@@ -7985,6 +7985,10 @@ Adicione a pasta onde estão seus jogos.</translation>
 <context>
     <name>ConfigureUi</name>
     <message>
+        <source>Download game covers automatically</source>
+        <translation>Baixar as capas dos jogos automaticamente</translation>
+    </message>
+    <message>
         <source>Use the Home screen (grid view)</source>
         <translation>Usar a tela inicial (grade)</translation>
     </message>

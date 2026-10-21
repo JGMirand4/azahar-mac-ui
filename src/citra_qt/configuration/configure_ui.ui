@@ -200,6 +200,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="toggle_auto_covers">
+          <property name="text">
+           <string>Download game covers automatically</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="home_accent_layout">
           <item>
            <widget class="QLabel" name="home_accent_label">

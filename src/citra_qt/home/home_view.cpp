@@ -438,6 +438,22 @@ static QRectF AspectFillSource(const QPixmap& pixmap, const QRectF& target) {
     return QRectF(all.left(), all.top() + (all.height() - h) / 2, all.width(), h);
 }
 
+/// Maior retangulo com a proporcao da imagem que cabe dentro de `box` (centralizado).
+/// Usado nas capas reais: elas aparecem inteiras, sem recorte e sem distorcao.
+static QRectF FitRect(const QPixmap& pixmap, const QRectF& box) {
+    if (pixmap.isNull() || pixmap.height() == 0) {
+        return box;
+    }
+    const qreal ratio = static_cast<qreal>(pixmap.width()) / pixmap.height();
+    qreal w = box.width();
+    qreal h = w / ratio;
+    if (h > box.height()) {
+        h = box.height();
+        w = h * ratio;
+    }
+    return QRectF(box.center().x() - w / 2, box.center().y() - h / 2, w, h);
+}
+
 class HeroArt : public QWidget {
 public:
     explicit HeroArt(const Theme* theme_, QWidget* parent = nullptr)
@@ -457,8 +473,9 @@ public:
         return base;
     }
 
-    void SetGame(const QPixmap& icon_, const QString& title, bool = false) {
+    void SetGame(const QPixmap& icon_, const QString& title, bool real_cover_ = false) {
         icon = icon_;
+        real_cover = real_cover_;
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
         base = AverageColor(icon, theme->accent_light);
         animation->stop();
@@ -479,9 +496,12 @@ protected:
 
         // Capa em tamanho normal, quadrada, no centro.
         const qreal size = std::min<qreal>(r.height() * 0.82, 196.0) * (0.92 + 0.08 * fade);
-        const QRectF icon_rect(r.center().x() - size / 2, r.center().y() - size / 2 - 4, size,
-                               size);
-        const qreal radius = size * 0.16;
+        QRectF icon_rect(r.center().x() - size / 2, r.center().y() - size / 2 - 4, size, size);
+        const bool boxed = real_cover && !icon.isNull();
+        if (boxed) {
+            icon_rect = FitRect(icon, icon_rect);
+        }
+        const qreal radius = boxed ? 10.0 : size * 0.16;
         p.setOpacity(fade);
         for (int i = 0; i < 8; ++i) {
             QColor c = theme->shadow;
@@ -507,12 +527,15 @@ protected:
             p.setFont(RoundedFont(static_cast<int>(size * 0.45), QFont::Bold));
             p.drawText(icon_rect, Qt::AlignCenter, initial);
         }
-        DrawCaseSpine(&p, icon_rect);
+        if (!boxed) {
+            DrawCaseSpine(&p, icon_rect);
+        }
     }
 
 private:
     const Theme* theme;
     QPixmap icon;
+    bool real_cover = false;
     QString initial;
     QColor base;
     QVariantAnimation* animation = nullptr;
@@ -563,8 +586,13 @@ public:
         }
         const QPointF center(cell.center().x(), cell.top() + 16 + kIconSize / 2.0 - lift);
         const qreal side = kIconSize * scale;
-        const QRectF rect(center.x() - side / 2, center.y() - side / 2, side, side);
-        const qreal radius = 27.0 * scale;
+        QRectF rect(center.x() - side / 2, center.y() - side / 2, side, side);
+        // Capa real (baixada ou escolhida): aparece inteira, na proporcao original.
+        const bool boxed = game.custom_cover && !game.icon.isNull();
+        if (boxed) {
+            rect = FitRect(game.icon, rect);
+        }
+        const qreal radius = (boxed ? 12.0 : 27.0) * scale;
 
         // Sombra.
         p->setPen(Qt::NoPen);
@@ -602,7 +630,9 @@ public:
         gloss.setColorAt(0.0, QColor(255, 255, 255, 70));
         gloss.setColorAt(1.0, QColor(255, 255, 255, 0));
         p->fillRect(rect, gloss);
-        DrawCaseSpine(p, rect);
+        if (!boxed) {
+            DrawCaseSpine(p, rect);
+        }
         p->setClipping(false);
 
         if (game.favorite) {
@@ -654,12 +684,14 @@ private:
 
         const qreal icon_side = row.height() - 16;
         const QRectF icon_rect(row.left() + 10, row.top() + 8, icon_side, icon_side);
+        const bool boxed = game.custom_cover && !game.icon.isNull();
+        const QRectF art_rect = boxed ? FitRect(game.icon, icon_rect) : icon_rect;
         QPainterPath clip;
-        clip.addRoundedRect(icon_rect, 13, 13);
+        clip.addRoundedRect(art_rect, boxed ? 7 : 13, boxed ? 7 : 13);
         p->save();
         p->setClipPath(clip);
         if (!game.icon.isNull()) {
-            p->drawPixmap(icon_rect, game.icon, AspectFillSource(game.icon, icon_rect));
+            p->drawPixmap(art_rect, game.icon, AspectFillSource(game.icon, art_rect));
         } else {
             QLinearGradient fill(icon_rect.topLeft(), icon_rect.bottomRight());
             fill.setColorAt(0.0, theme.accent_light);
@@ -670,7 +702,9 @@ private:
             p->drawText(icon_rect, Qt::AlignCenter,
                         game.title.isEmpty() ? QString() : game.title.left(1).toUpper());
         }
-        DrawCaseSpine(p, icon_rect);
+        if (!boxed) {
+            DrawCaseSpine(p, icon_rect);
+        }
         p->restore();
 
         // Colunas da direita (somem em janelas estreitas).

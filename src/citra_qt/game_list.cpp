@@ -8,6 +8,7 @@
 #include <QColor>
 #include <QDateTime>
 #include <QSettings>
+#include <QTimer>
 #include <QDir>
 #include <QImage>
 #include <QFileDialog>
@@ -40,6 +41,7 @@
 #include "citra_qt/game_list.h"
 #include "citra_qt/game_list_p.h"
 #include "citra_qt/game_list_worker.h"
+#include "citra_qt/home/cover_fetcher.h"
 #include "citra_qt/home/home_view.h"
 #include "citra_qt/uisettings.h"
 #include "common/common_paths.h"
@@ -445,6 +447,17 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
                                   prefs.value(QStringLiteral("view/sort"), 0).toInt(),
                                   prefs.value(QStringLiteral("view/quick"), 0).toInt());
     }
+    cover_fetcher = new Home::CoverFetcher(
+        QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+            QStringLiteral("covers_auto"),
+        this);
+    cover_refresh_timer = new QTimer(this);
+    cover_refresh_timer->setSingleShot(true);
+    cover_refresh_timer->setInterval(700);
+    connect(cover_refresh_timer, &QTimer::timeout, this, [this] { RebuildHomeView(); });
+    // Varias capas chegam em sequencia: agrupa e atualiza a tela uma vez so.
+    connect(cover_fetcher, &Home::CoverFetcher::CoverReady, this,
+            [this] { cover_refresh_timer->start(); });
     connect(home_view, &Home::HomeView::PreferencesChanged, this, [this] {
         QSettings prefs(HomeStatePath(), QSettings::IniFormat);
         prefs.setValue(QStringLiteral("view/list"), home_view->IsListMode());
@@ -623,6 +636,25 @@ void GameList::RebuildHomeView() {
                 if (QPixmap custom(cover); !custom.isNull()) {
                     info.icon = custom;
                     info.custom_cover = true;
+                }
+            }
+            if (!info.custom_cover && UISettings::values.home_auto_covers.GetValue()) {
+                // Capa automatica: baixada do GameTDB pelo codigo do jogo e guardada em cache.
+                auto id_it = game_id_cache.find(info.path);
+                if (id_it == game_id_cache.end()) {
+                    id_it = game_id_cache.insert(info.path,
+                                                 Home::CoverFetcher::ReadGameId(info.path));
+                }
+                if (!id_it->isEmpty()) {
+                    if (const QString cached = cover_fetcher->CachedCover(*id_it);
+                        !cached.isEmpty()) {
+                        if (QPixmap art(cached); !art.isNull()) {
+                            info.icon = art;
+                            info.custom_cover = true; // arte de capa real: nao recortar
+                        }
+                    } else {
+                        cover_fetcher->Request(*id_it);
+                    }
                 }
             }
             info.extdata_id = name->data(GameListItemPath::ExtdataIdRole).toULongLong();

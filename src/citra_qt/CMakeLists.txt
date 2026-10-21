@@ -134,6 +134,8 @@ add_library(citra_qt STATIC EXCLUDE_FROM_ALL
     game_list_worker.h
     home/battery_status.cpp
     home/battery_status.h
+    home/cover_fetcher.cpp
+    home/cover_fetcher.h
     home/home_theme.h
     home/home_view.cpp
     home/home_view.h
@@ -309,7 +311,7 @@ create_target_directory_groups(citra_qt)
 
 target_link_libraries(citra_qt PRIVATE audio_core citra_common citra_core input_common network video_core)
 target_link_libraries(citra_qt PUBLIC Boost::boost Qt6::Widgets)
-target_link_libraries(citra_qt PRIVATE nihstro-headers Qt6::Multimedia Qt6::Concurrent)
+target_link_libraries(citra_qt PRIVATE nihstro-headers Qt6::Multimedia Qt6::Concurrent Qt6::Network)
 target_link_libraries(citra_qt PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
 if (MINGW)

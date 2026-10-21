@@ -109,6 +109,7 @@ void ConfigureUi::SetConfiguration() {
     ui->toggle_single_line_mode->setChecked(
         UISettings::values.game_list_single_line_mode.GetValue());
     ui->toggle_home_view->setChecked(UISettings::values.game_list_use_home_view.GetValue());
+    ui->toggle_auto_covers->setChecked(UISettings::values.home_auto_covers.GetValue());
     SetAccentButtonColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     const auto bg_color = [](const std::string& value) {
@@ -132,6 +133,7 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.game_list_hide_no_icon = ui->toggle_hide_no_icon->isChecked();
     UISettings::values.game_list_single_line_mode = ui->toggle_single_line_mode->isChecked();
     UISettings::values.game_list_use_home_view = ui->toggle_home_view->isChecked();
+    UISettings::values.home_auto_covers = ui->toggle_auto_covers->isChecked();
     UISettings::values.home_accent_color = home_accent.name().toStdString();
     UISettings::values.home_bg_top = home_bg_top.isValid() ? home_bg_top.name().toStdString() : "";
     UISettings::values.show_advanced_frametime_info = ui->show_advanced_frametime_info->isChecked();

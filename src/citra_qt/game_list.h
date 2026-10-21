@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QMenu>
 #include <QPushButton>
 #include <QString>
@@ -23,6 +24,7 @@ class GameListDir;
 class GameListSearchField;
 namespace Home {
 class HomeView;
+class CoverFetcher;
 struct GameInfo;
 } // namespace Home
 class GMainWindow;
@@ -36,6 +38,7 @@ class QModelIndex;
 class QStandardItem;
 class QStandardItemModel;
 class QTreeView;
+class QTimer;
 class QToolButton;
 class QVBoxLayout;
 
@@ -161,6 +164,9 @@ private:
     QVBoxLayout* layout = nullptr;
     QTreeView* tree_view = nullptr;
     Home::HomeView* home_view = nullptr;
+    Home::CoverFetcher* cover_fetcher = nullptr;
+    QTimer* cover_refresh_timer = nullptr;
+    QHash<QString, QString> game_id_cache; // caminho do jogo -> codigo de 4 letras
     bool home_mode = false;
     bool filter_bar_visible = true;
     QStandardItemModel* item_model = nullptr;
