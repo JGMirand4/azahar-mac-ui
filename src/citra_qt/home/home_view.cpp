@@ -512,6 +512,133 @@ static QRectF FitRect(const QPixmap& pixmap, const QRectF& box) {
     return QRectF(box.center().x() - w / 2, box.center().y() - h / 2, w, h);
 }
 
+/// Estilo do icone dos jogos: 0 = normal (estojo), 1 = cartucho de 3DS.
+static int g_icon_style = 0;
+
+/// Retangulo do cartucho dentro do espaco quadrado do icone.
+static QRectF CartridgeRect(const QRectF& slot) {
+    const qreal w = slot.width() * 0.94;
+    const qreal h = w * 0.96;
+    return QRectF(slot.center().x() - w / 2, slot.center().y() - h / 2, w, h);
+}
+
+/// Contorno do cartucho: cantos arredondados e o canto superior direito cortado.
+static QPainterPath CartridgePath(const QRectF& r) {
+    const qreal rad = r.width() * 0.085;
+    const qreal cut = r.width() * 0.17;
+    QPainterPath path;
+    path.moveTo(r.left() + rad, r.top());
+    path.lineTo(r.right() - cut, r.top());
+    path.lineTo(r.right(), r.top() + cut);
+    path.lineTo(r.right(), r.bottom() - rad);
+    path.arcTo(QRectF(r.right() - 2 * rad, r.bottom() - 2 * rad, 2 * rad, 2 * rad), 0, -90);
+    path.lineTo(r.left() + rad, r.bottom());
+    path.arcTo(QRectF(r.left(), r.bottom() - 2 * rad, 2 * rad, 2 * rad), 270, -90);
+    path.lineTo(r.left(), r.top() + rad);
+    path.arcTo(QRectF(r.left(), r.top(), 2 * rad, 2 * rad), 180, -90);
+    path.closeSubpath();
+    return path;
+}
+
+/// Desenha o jogo como um cartucho de 3DS: corpo de plastico escuro, etiqueta com a arte do
+/// jogo, ranhuras de pegada no topo e os contatos dourados embaixo.
+static void PaintCartridge(QPainter* p, const QRectF& slot, const QPixmap& icon, bool real_cover,
+                           const QString& initial, const Theme& theme, bool selected,
+                           bool with_shadow) {
+    p->save();
+    p->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform |
+                      QPainter::TextAntialiasing);
+    const QRectF r = CartridgeRect(slot);
+    const qreal w = r.width();
+    const qreal h = r.height();
+    const QPainterPath body = CartridgePath(r);
+
+    if (with_shadow) {
+        p->setBrush(Qt::NoBrush);
+        for (int i = 0; i < 6; ++i) {
+            QColor c = selected ? theme.accent : theme.shadow;
+            c.setAlphaF(selected ? 0.10 : 0.07);
+            QPainterPath shifted = body;
+            shifted.translate(0, 8);
+            p->setPen(QPen(c, i * 2.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p->setBrush(c);
+            p->drawPath(shifted);
+        }
+    }
+    if (selected) {
+        p->setBrush(theme.accent);
+        p->setPen(QPen(theme.accent, 16, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p->drawPath(body);
+        p->setBrush(Qt::white);
+        p->setPen(QPen(Qt::white, 8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p->drawPath(body);
+    }
+
+    // Corpo de plastico.
+    QLinearGradient shell(r.topLeft(), r.bottomRight());
+    shell.setColorAt(0.0, QColor(0x5A, 0x60, 0x6B));
+    shell.setColorAt(1.0, QColor(0x2B, 0x2F, 0x36));
+    p->setPen(Qt::NoPen);
+    p->setBrush(shell);
+    p->drawPath(body);
+    p->setBrush(Qt::NoBrush);
+    p->setPen(QPen(QColor(255, 255, 255, 46), std::max(1.0, w * 0.01)));
+    p->drawPath(body);
+
+    // Ranhuras de pegada (topo, lado esquerdo).
+    p->setPen(QPen(QColor(0, 0, 0, 90), std::max(1.0, w * 0.012), Qt::SolidLine, Qt::RoundCap));
+    for (int i = 0; i < 3; ++i) {
+        const qreal y = r.top() + h * (0.035 + 0.032 * i);
+        p->drawLine(QPointF(r.left() + w * 0.10, y), QPointF(r.left() + w * 0.30, y));
+    }
+
+    // Etiqueta com a arte do jogo.
+    const QRectF label(r.left() + w * 0.08, r.top() + h * 0.155, w * 0.84, h * 0.63);
+    const qreal label_radius = w * 0.045;
+    QPainterPath label_path;
+    label_path.addRoundedRect(label, label_radius, label_radius);
+    p->save();
+    p->setClipPath(label_path);
+    if (!icon.isNull()) {
+        if (real_cover) {
+            p->fillRect(label, QColor(0xF4, 0xF6, 0xFA));
+            p->drawPixmap(FitRect(icon, label), icon, QRectF(icon.rect()));
+        } else {
+            p->drawPixmap(label, icon, AspectFillSource(icon, label));
+        }
+    } else {
+        QLinearGradient fill(label.topLeft(), label.bottomRight());
+        fill.setColorAt(0.0, theme.accent_light);
+        fill.setColorAt(1.0, theme.accent);
+        p->fillRect(label, fill);
+        p->setPen(Qt::white);
+        p->setFont(RoundedFont(std::max(8, static_cast<int>(w * 0.34)), QFont::Bold));
+        p->drawText(label, Qt::AlignCenter, initial);
+    }
+    QLinearGradient gloss(label.topLeft(), QPointF(label.left(), label.top() + label.height() * 0.5));
+    gloss.setColorAt(0.0, QColor(255, 255, 255, 60));
+    gloss.setColorAt(1.0, QColor(255, 255, 255, 0));
+    p->fillRect(label, gloss);
+    p->restore();
+    p->setBrush(Qt::NoBrush);
+    p->setPen(QPen(QColor(0, 0, 0, 110), std::max(1.0, w * 0.012)));
+    p->drawPath(label_path);
+
+    // Contatos dourados na parte de baixo.
+    const QRectF slot_rect(r.left() + w * 0.16, r.bottom() - h * 0.115, w * 0.68, h * 0.075);
+    p->setPen(Qt::NoPen);
+    p->setBrush(QColor(0x1B, 0x1E, 0x23));
+    p->drawRoundedRect(slot_rect, slot_rect.height() * 0.3, slot_rect.height() * 0.3);
+    p->setPen(QPen(QColor(0xD8, 0xB4, 0x5A), std::max(1.0, w * 0.014), Qt::SolidLine, Qt::FlatCap));
+    constexpr int kContacts = 9;
+    for (int i = 0; i < kContacts; ++i) {
+        const qreal x = slot_rect.left() + slot_rect.width() * (i + 0.5) / kContacts;
+        p->drawLine(QPointF(x, slot_rect.top() + slot_rect.height() * 0.18),
+                    QPointF(x, slot_rect.bottom() - slot_rect.height() * 0.18));
+    }
+    p->restore();
+}
+
 class HeroArt : public QWidget {
 public:
     explicit HeroArt(const Theme* theme_, QWidget* parent = nullptr)
@@ -556,11 +683,16 @@ protected:
         const qreal size = std::min<qreal>(r.height() * 0.82, 196.0) * (0.92 + 0.08 * fade);
         QRectF icon_rect(r.center().x() - size / 2, r.center().y() - size / 2 - 4, size, size);
         const bool boxed = real_cover && !icon.isNull();
+        const QRectF square_rect = icon_rect;
         if (boxed) {
             icon_rect = FitRect(icon, icon_rect);
         }
         const qreal radius = boxed ? 10.0 : size * 0.16;
         p.setOpacity(fade);
+        if (g_icon_style == 1) {
+            PaintCartridge(&p, square_rect, icon, boxed, initial, *theme, false, true);
+            return;
+        }
         for (int i = 0; i < 8; ++i) {
             QColor c = theme->shadow;
             c.setAlphaF(0.06);
@@ -614,46 +746,51 @@ static void PaintTile(QPainter* p, const QRectF& slot, const GameInfo& game, con
         rect = FitRect(game.icon, slot);
     }
     const qreal side = slot.width();
-    const qreal radius = (boxed ? 12.0 : 27.0) * radius_scale;
-
-    p->setPen(Qt::NoPen);
-    for (int i = 0; i < 6; ++i) {
-        QColor c = selected ? theme.accent : theme.shadow;
-        c.setAlphaF(selected ? 0.10 : 0.07);
-        p->setBrush(c);
-        p->drawRoundedRect(rect.adjusted(-i * 1.4, -i * 1.4 + 8, i * 1.4, i * 1.4 + 8),
-                           radius + i * 1.4, radius + i * 1.4);
-    }
-    if (selected) {
-        p->setBrush(theme.accent);
-        p->drawRoundedRect(rect.adjusted(-8, -8, 8, 8), radius + 8, radius + 8);
-        p->setBrush(Qt::white);
-        p->drawRoundedRect(rect.adjusted(-4, -4, 4, 4), radius + 4, radius + 4);
-    }
-
-    QPainterPath clip;
-    clip.addRoundedRect(rect, radius, radius);
-    p->setClipPath(clip);
-    if (!game.icon.isNull()) {
-        p->drawPixmap(rect, game.icon, AspectFillSource(game.icon, rect));
+    if (g_icon_style == 1) {
+        rect = CartridgeRect(slot);
+        PaintCartridge(p, slot, game.icon, boxed, game.title.isEmpty() ? QString() : game.title.left(1).toUpper(), theme, selected, true);
     } else {
-        QLinearGradient fill(rect.topLeft(), rect.bottomRight());
-        fill.setColorAt(0.0, theme.accent_light);
-        fill.setColorAt(1.0, theme.accent);
-        p->fillRect(rect, fill);
-        p->setPen(Qt::white);
-        p->setFont(RoundedFont(std::max(8, static_cast<int>(side * 0.45)), QFont::Bold));
-        p->drawText(rect, Qt::AlignCenter,
-                    game.title.isEmpty() ? QString() : game.title.left(1).toUpper());
+        const qreal radius = (boxed ? 12.0 : 27.0) * radius_scale;
+
+        p->setPen(Qt::NoPen);
+        for (int i = 0; i < 6; ++i) {
+            QColor c = selected ? theme.accent : theme.shadow;
+            c.setAlphaF(selected ? 0.10 : 0.07);
+            p->setBrush(c);
+            p->drawRoundedRect(rect.adjusted(-i * 1.4, -i * 1.4 + 8, i * 1.4, i * 1.4 + 8),
+                               radius + i * 1.4, radius + i * 1.4);
+        }
+        if (selected) {
+            p->setBrush(theme.accent);
+            p->drawRoundedRect(rect.adjusted(-8, -8, 8, 8), radius + 8, radius + 8);
+            p->setBrush(Qt::white);
+            p->drawRoundedRect(rect.adjusted(-4, -4, 4, 4), radius + 4, radius + 4);
+        }
+
+        QPainterPath clip;
+        clip.addRoundedRect(rect, radius, radius);
+        p->setClipPath(clip);
+        if (!game.icon.isNull()) {
+            p->drawPixmap(rect, game.icon, AspectFillSource(game.icon, rect));
+        } else {
+            QLinearGradient fill(rect.topLeft(), rect.bottomRight());
+            fill.setColorAt(0.0, theme.accent_light);
+            fill.setColorAt(1.0, theme.accent);
+            p->fillRect(rect, fill);
+            p->setPen(Qt::white);
+            p->setFont(RoundedFont(std::max(8, static_cast<int>(side * 0.45)), QFont::Bold));
+            p->drawText(rect, Qt::AlignCenter,
+                        game.title.isEmpty() ? QString() : game.title.left(1).toUpper());
+        }
+        QLinearGradient gloss(rect.topLeft(), QPointF(rect.left(), rect.top() + side * 0.45));
+        gloss.setColorAt(0.0, QColor(255, 255, 255, 70));
+        gloss.setColorAt(1.0, QColor(255, 255, 255, 0));
+        p->fillRect(rect, gloss);
+        if (!boxed) {
+            DrawCaseSpine(p, rect);
+        }
+        p->setClipping(false);
     }
-    QLinearGradient gloss(rect.topLeft(), QPointF(rect.left(), rect.top() + side * 0.45));
-    gloss.setColorAt(0.0, QColor(255, 255, 255, 70));
-    gloss.setColorAt(1.0, QColor(255, 255, 255, 0));
-    p->fillRect(rect, gloss);
-    if (!boxed) {
-        DrawCaseSpine(p, rect);
-    }
-    p->setClipping(false);
 
     if (game.favorite) {
         p->save();
@@ -1325,27 +1462,33 @@ private:
         const qreal icon_side = row.height() - 16;
         const QRectF icon_rect(row.left() + 10, row.top() + 8, icon_side, icon_side);
         const bool boxed = game.custom_cover && !game.icon.isNull();
-        const QRectF art_rect = boxed ? FitRect(game.icon, icon_rect) : icon_rect;
-        QPainterPath clip;
-        clip.addRoundedRect(art_rect, boxed ? 7 : 13, boxed ? 7 : 13);
-        p->save();
-        p->setClipPath(clip);
-        if (!game.icon.isNull()) {
-            p->drawPixmap(art_rect, game.icon, AspectFillSource(game.icon, art_rect));
+        if (g_icon_style == 1) {
+            PaintCartridge(p, icon_rect, game.icon, boxed,
+                           game.title.isEmpty() ? QString() : game.title.left(1).toUpper(), theme,
+                           false, false);
         } else {
-            QLinearGradient fill(icon_rect.topLeft(), icon_rect.bottomRight());
-            fill.setColorAt(0.0, theme.accent_light);
-            fill.setColorAt(1.0, theme.accent);
-            p->fillRect(icon_rect, fill);
-            p->setPen(Qt::white);
-            p->setFont(RoundedFont(22, QFont::Bold));
-            p->drawText(icon_rect, Qt::AlignCenter,
-                        game.title.isEmpty() ? QString() : game.title.left(1).toUpper());
+            const QRectF art_rect = boxed ? FitRect(game.icon, icon_rect) : icon_rect;
+            QPainterPath clip;
+            clip.addRoundedRect(art_rect, boxed ? 7 : 13, boxed ? 7 : 13);
+            p->save();
+            p->setClipPath(clip);
+            if (!game.icon.isNull()) {
+                p->drawPixmap(art_rect, game.icon, AspectFillSource(game.icon, art_rect));
+            } else {
+                QLinearGradient fill(icon_rect.topLeft(), icon_rect.bottomRight());
+                fill.setColorAt(0.0, theme.accent_light);
+                fill.setColorAt(1.0, theme.accent);
+                p->fillRect(icon_rect, fill);
+                p->setPen(Qt::white);
+                p->setFont(RoundedFont(22, QFont::Bold));
+                p->drawText(icon_rect, Qt::AlignCenter,
+                            game.title.isEmpty() ? QString() : game.title.left(1).toUpper());
+            }
+            if (!boxed) {
+                DrawCaseSpine(p, icon_rect);
+            }
+            p->restore();
         }
-        if (!boxed) {
-            DrawCaseSpine(p, icon_rect);
-        }
-        p->restore();
 
         // Colunas da direita (somem em janelas estreitas).
         qreal right = row.right() - 18;
@@ -2342,6 +2485,19 @@ void HomeView::FocusActiveView() {
 
 bool HomeView::UsePlaystationIcons() const {
     return pad_style == 2 || (pad_style == 0 && pad_layout == 1);
+}
+
+void HomeView::SetIconStyle(int style) {
+    style = std::clamp(style, 0, 1);
+    if (style == g_icon_style) {
+        return;
+    }
+    g_icon_style = style;
+    if (grid != nullptr) {
+        grid->viewport()->update();
+        carousel->update();
+        hero_art->update();
+    }
 }
 
 void HomeView::SetPadStyle(int style) {

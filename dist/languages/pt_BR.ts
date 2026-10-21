@@ -4135,6 +4135,18 @@ Arraste os pontos para alterar a posição ou clique duas vezes nas células da 
         <source>PlayStation</source>
         <translation>PlayStation</translation>
     </message>
+    <message>
+        <source>Game icon style</source>
+        <translation>Formato do ícone dos jogos</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Normal</translation>
+    </message>
+    <message>
+        <source>3DS cartridge</source>
+        <translation>Cartucho de 3DS</translation>
+    </message>
 </context>
 <context>
     <name>ConfigureWeb</name>

@@ -93,6 +93,8 @@ public:
     void SetSoundOptions(const QString& dir, bool enabled);
     /// Icones dos botoes do controle: 0 = automatico, 1 = Xbox, 2 = PlayStation.
     void SetPadStyle(int style);
+    /// Estilo do icone dos jogos: 0 = normal, 1 = cartucho de 3DS.
+    void SetIconStyle(int style);
     /// Reflete no botao do topo se o modo console esta ativo.
     void SetConsoleMode(bool enabled);
     /// Um botao do controle foi apertado (valores de GamepadNav::Button).
