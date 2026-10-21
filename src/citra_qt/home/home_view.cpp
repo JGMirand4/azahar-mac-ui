@@ -280,6 +280,48 @@ QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool fille
     return QIcon(MakeGlyph(glyph, color, size, dpr, filled, fill_color));
 }
 
+/// Moeda dourada (estilo "Moeda de Jogo" do 3DS) com uma estrela no centro.
+QPixmap MakeCoin(int size, qreal dpr) {
+    QPixmap pm(QSize(size, size) * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r(1, 1, size - 2, size - 2);
+    QLinearGradient rim(r.topLeft(), r.bottomRight());
+    rim.setColorAt(0.0, QColor(0xFF, 0xE0, 0x6B));
+    rim.setColorAt(1.0, QColor(0xD9, 0x96, 0x12));
+    p.setPen(QPen(QColor(0xB8, 0x77, 0x0A), 1.0));
+    p.setBrush(rim);
+    p.drawEllipse(r);
+    const QRectF inner = r.adjusted(size * 0.11, size * 0.11, -size * 0.11, -size * 0.11);
+    QLinearGradient face(inner.topLeft(), inner.bottomRight());
+    face.setColorAt(0.0, QColor(0xFF, 0xF1, 0xA8));
+    face.setColorAt(1.0, QColor(0xF2, 0xB7, 0x2A));
+    p.setPen(QPen(QColor(0xD9, 0x96, 0x12, 200), 0.8));
+    p.setBrush(face);
+    p.drawEllipse(inner);
+    QPainterPath star;
+    const QPointF c = r.center();
+    const qreal outer = size * 0.27;
+    const qreal inside = outer * 0.45;
+    for (int i = 0; i < 10; ++i) {
+        const qreal angle = -M_PI / 2 + i * M_PI / 5;
+        const qreal radius = (i % 2 == 0) ? outer : inside;
+        const QPointF pt(c.x() + radius * std::cos(angle), c.y() + radius * std::sin(angle));
+        if (i == 0) {
+            star.moveTo(pt);
+        } else {
+            star.lineTo(pt);
+        }
+    }
+    star.closeSubpath();
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0xC9, 0x84, 0x0C));
+    p.drawPath(star);
+    return pm;
+}
+
 /// Barra lateral classica das capas de jogos de 3DS: faixa branca com o quadrado laranja da
 /// "Nintendo Network" no topo, o logotipo "NINTENDO 3DS" na vertical (lido de baixo para cima,
 /// com o "3" vermelho) e um filete preto na borda direita. Deve ser desenhada com o recorte
@@ -548,6 +590,19 @@ static QRectF FitRect(const QPixmap& pixmap, const QRectF& box) {
 /// Estilo do icone dos jogos: 0 = normal (estojo), 1 = cartucho de 3DS.
 static int g_icon_style = 0;
 
+/// Texto do rodape da etiqueta do cartucho: "CTR-<codigo>-<regiao>" (ex.: CTR-BNDP-EUR).
+static QString CartridgeFooter(const QString& product_id, const QString& region) {
+    QString reg = region.section(QLatin1Char(','), 0, 0).trimmed().left(3).toUpper();
+    QString text = QStringLiteral("CTR");
+    if (!product_id.isEmpty()) {
+        text += QLatin1Char('-') + product_id.toUpper();
+    }
+    if (!reg.isEmpty()) {
+        text += QLatin1Char('-') + reg;
+    }
+    return text;
+}
+
 /// Retangulo do cartucho dentro do espaco quadrado do icone (o cartucho real e quase quadrado).
 static QRectF CartridgeRect(const QRectF& slot) {
     const qreal w = slot.width() * 0.92;
@@ -680,30 +735,22 @@ static void PaintCartridge(QPainter* p, const QRectF& slot, const QPixmap& icon,
             font.setPixelSize(std::max(4, static_cast<int>(px)));
             return font;
         };
-        const qreal big = header_h * 0.62;
-        const qreal small = header_h * 0.30;
-        const QFontMetricsF small_metrics(make(small));
-        const QFontMetricsF big_metrics(make(big));
-        const qreal nintendo_w = small_metrics.horizontalAdvance(QStringLiteral("NINTENDO"));
-        const qreal three_w = big_metrics.horizontalAdvance(QStringLiteral("3"));
-        const qreal ds_w = big_metrics.horizontalAdvance(QStringLiteral("DS"));
-        const qreal total = nintendo_w + big * 0.2 + three_w + ds_w;
-        qreal x = header.center().x() - total / 2;
-        const qreal base = header.center().y() + big * 0.34;
-        p->setFont(make(small));
-        p->setPen(QColor(0x1A, 0x1A, 0x1A));
-        p->drawText(QPointF(x, base - big * 0.02), QStringLiteral("NINTENDO"));
-        x += nintendo_w + big * 0.2;
-        p->setFont(make(big));
-        p->setPen(QColor(0xE6, 0x00, 0x12));
-        p->drawText(QPointF(x, base), QStringLiteral("3"));
-        p->setPen(QColor(0x1A, 0x1A, 0x1A));
-        p->drawText(QPointF(x + three_w, base), QStringLiteral("DS"));
+        static const QPixmap logo(QStringLiteral(":/home3ds/nintendo3ds_logo.png"));
+        if (!logo.isNull()) {
+            const QRectF box = header.adjusted(header.width() * 0.10, header.height() * 0.16,
+                                               -header.width() * 0.10, -header.height() * 0.16);
+            const qreal k = std::min(box.width() / logo.width(), box.height() / logo.height());
+            const QSizeF size(logo.width() * k, logo.height() * k);
+            p->drawPixmap(QRectF(QPointF(box.center().x() - size.width() / 2,
+                                         box.center().y() - size.height() / 2),
+                                 size),
+                          logo, QRectF(logo.rect()));
+        }
         if (!footer.isEmpty()) {
-            p->setFont(make(footer_h * 0.38));
+            p->setFont(make(footer_h * 0.34));
             p->setPen(QColor(0x3A, 0x40, 0x48));
             p->drawText(footer_rect.adjusted(footer_rect.width() * 0.06, 0, 0, 0),
-                        Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("CTR-") + footer);
+                        Qt::AlignLeft | Qt::AlignVCenter, footer);
         }
     }
     p->restore();
@@ -822,8 +869,8 @@ static void PaintTile(QPainter* p, const QRectF& slot, const GameInfo& game, con
     if (g_icon_style == 1) {
         rect = CartridgeRect(slot);
         PaintCartridge(p, slot, game.icon, boxed,
-                       game.title.isEmpty() ? QString() : game.title.left(1).toUpper(), game.region,
-                       theme, selected, true);
+                       game.title.isEmpty() ? QString() : game.title.left(1).toUpper(),
+                       CartridgeFooter(game.product_id, game.region), theme, selected, true);
     } else {
         const qreal radius = (boxed ? 12.0 : 27.0) * radius_scale;
 
@@ -1540,7 +1587,7 @@ private:
         if (g_icon_style == 1) {
             PaintCartridge(p, icon_rect, game.icon, boxed,
                            game.title.isEmpty() ? QString() : game.title.left(1).toUpper(),
-                           game.region, theme, false, false);
+                           CartridgeFooter(game.product_id, game.region), theme, false, false);
         } else {
             const QRectF art_rect = boxed ? FitRect(game.icon, icon_rect) : icon_rect;
             QPainterPath clip;
@@ -1755,6 +1802,22 @@ void HomeView::BuildUi() {
         console_button->setChecked(!checked); // volta ao estado real ate o app confirmar
         emit ConsoleModeRequested();
     });
+    coin_pill = new QFrame(right);
+    coin_pill->setObjectName(QStringLiteral("pill"));
+    coin_pill->setFixedHeight(46);
+    coin_pill->setToolTip(tr("Total play time across your library"));
+    auto* coin_layout = new QHBoxLayout(coin_pill);
+    coin_layout->setContentsMargins(8, 0, 20, 0);
+    coin_layout->setSpacing(10);
+    auto* coin_icon = new QLabel(coin_pill);
+    coin_icon->setFixedSize(32, 32);
+    coin_icon->setPixmap(MakeCoin(32, dpr));
+    coin_label = new QLabel(coin_pill);
+    coin_label->setObjectName(QStringLiteral("coinText"));
+    coin_layout->addWidget(coin_icon);
+    coin_layout->addWidget(coin_label);
+    coin_pill->hide();
+    right_layout->addWidget(coin_pill);
     right_layout->addWidget(battery_pill);
     right_layout->addWidget(console_button);
     right_layout->addWidget(settings_button);
@@ -2169,6 +2232,7 @@ void HomeView::RebuildStyleSheet() {
 #homeRoot QLabel#appTag { color: @on_bg_muted@; }
 #homeRoot QLabel#heroEyebrow { color: @accent@; }
 #homeRoot QLabel#clockDate { color: @muted@; }
+#homeRoot QLabel#coinText { color: @text@; background: transparent; }
 #homeRoot QLabel#heroDesc { color: @body@; }
 #homeRoot QLabel#heroHours { color: @muted@; }
 #homeRoot QFrame#pill {
@@ -2240,6 +2304,8 @@ void HomeView::RebuildStyleSheet() {
     min-height: 32px; max-height: 32px;
     color: @ink@;
 }
+#homeRoot QPushButton:focus { border: 2px solid @accent@; }
+#homeRoot QPushButton#play:focus { border: 2px solid #FFFFFF; }
 #homeRoot QPushButton#filterChip:hover { background: #EEF3FA; border-color: @accent@; }
 #homeRoot QPushButton#filterChip:checked { background: @accent@; border-color: @accent@; color: #FFFFFF; }
 #homeRoot QPushButton#surpriseChip {
@@ -2302,8 +2368,21 @@ void HomeView::UpdateEmptyState(int visible) {
     UpdateHeroSize();
     if (empty) {
         const bool no_games = games.empty();
-        const QString text = no_games ? tr("No games yet.\nAdd the folder where your games are.")
-                                      : tr("No games match your search.");
+        const bool searching = !filter_text.isEmpty();
+        QString text;
+        Glyph empty_glyph = Glyph::Search;
+        if (no_games) {
+            text = tr("No games yet.\nAdd the folder where your games are.");
+            empty_glyph = Glyph::Folder;
+        } else if (!searching && quick_filter == 1) {
+            text = tr("No favorites yet.\nPress F on a game to add it.");
+            empty_glyph = Glyph::Star;
+        } else if (!searching && quick_filter == 2) {
+            text = tr("Nothing played yet.\nGames you play show up here.");
+            empty_glyph = Glyph::Home;
+        } else {
+            text = tr("No games match your search.");
+        }
         const QStringList lines = text.split(QLatin1Char('\n'));
         QString html = QStringLiteral("<div style='font-size:24px; font-weight:700;'>%1</div>")
                            .arg(lines.value(0).toHtmlEscaped());
@@ -2315,7 +2394,7 @@ void HomeView::UpdateEmptyState(int visible) {
         QColor icon_color = theme.text_muted;
         icon_color.setAlphaF(0.55);
         const qreal dpr = devicePixelRatioF();
-        empty_icon->setPixmap(MakeGlyph(no_games ? Glyph::Folder : Glyph::Search, icon_color, 72, dpr));
+        empty_icon->setPixmap(MakeGlyph(empty_glyph, icon_color, 72, dpr));
         empty_add_button->setVisible(no_games);
     }
 }
@@ -2327,6 +2406,19 @@ void HomeView::SetBackgroundColor(const QColor& color) {
 
 void HomeView::SetGames(std::vector<GameInfo> new_games) {
     games = std::move(new_games);
+    qulonglong total_seconds = 0;
+    for (const GameInfo& game : games) {
+        total_seconds += game.play_time_seconds;
+    }
+    coin_pill->setVisible(total_seconds > 0);
+    if (total_seconds > 0) {
+        const qulonglong hours = total_seconds / 3600;
+        const QString value = hours > 0 ? QString::number(hours) : QString::number(total_seconds / 60);
+        const QString unit = hours > 0 ? tr("h played") : tr("min played");
+        coin_label->setText(QStringLiteral("<span style='font-size:22px; font-weight:700;'>%1</span>"
+                                           "&nbsp;<span style='font-size:13px;'>%2</span>")
+                                .arg(value, unit.toHtmlEscaped()));
+    }
     RefreshModel();
 }
 
@@ -2958,7 +3050,8 @@ void HomeView::UpdateHero() {
     favorite_button->setChecked(game->favorite);
     favorite_button->setIcon(
         MakeIcon(Glyph::Star, theme.text, 22, dpr, game->favorite, theme.favorite));
-    hero_art->SetGame(game->icon, game->title, game->custom_cover, game->region);
+    hero_art->SetGame(game->icon, game->title, game->custom_cover,
+                      CartridgeFooter(game->product_id, game->region));
     hero_panel->setProperty("tint", hero_art->Base());
     hero_panel->update();
     UpdateTint();

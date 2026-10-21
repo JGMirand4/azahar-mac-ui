@@ -23,5 +23,6 @@
         <file>style.qss</file>
         <file>chevron_down.svg</file>
         <file>check.svg</file>
+        <file>nintendo3ds_logo.png</file>
     </qresource>
 </RCC>

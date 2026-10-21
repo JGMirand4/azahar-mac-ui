@@ -655,13 +655,15 @@ void GameList::RebuildHomeView() {
                     info.custom_cover = true;
                 }
             }
+            // Codigo de 4 letras do jogo (lido uma vez do arquivo e guardado): usado na capa
+            // automatica e no rodape do cartucho.
+            auto id_it = game_id_cache.find(info.path);
+            if (id_it == game_id_cache.end()) {
+                id_it = game_id_cache.insert(info.path, Home::CoverFetcher::ReadGameId(info.path));
+            }
+            info.product_id = *id_it;
             if (!info.custom_cover && UISettings::values.home_auto_covers.GetValue()) {
                 // Capa automatica: baixada do GameTDB pelo codigo do jogo e guardada em cache.
-                auto id_it = game_id_cache.find(info.path);
-                if (id_it == game_id_cache.end()) {
-                    id_it = game_id_cache.insert(info.path,
-                                                 Home::CoverFetcher::ReadGameId(info.path));
-                }
                 if (!id_it->isEmpty()) {
                     if (const QString cached = cover_fetcher->CachedCover(*id_it);
                         !cached.isEmpty()) {
