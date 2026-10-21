@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPalette>
+#include <QStyleHints>
 #include <QSysInfo>
 #include <QtConcurrent/QtConcurrentMap>
 #include <QtConcurrent/QtConcurrentRun>
@@ -4349,6 +4350,19 @@ void GMainWindow::UpdateUITheme() {
         qApp->installEventFilter(popup_rounder);
     }
     popup_rounder->SetEnabled(current_theme == QStringLiteral("home3ds"));
+
+    // O tema Home 3DS e claro: usa paleta e esquema de cores claros, senao o modo escuro do
+    // sistema deixa texto escuro sobre fundo escuro nas configuracoes. Os outros temas voltam
+    // para a paleta original do sistema.
+    static const QPalette system_palette = qApp->palette();
+    const bool is_home_theme = current_theme == QStringLiteral("home3ds");
+    if (!is_home_theme) {
+        qApp->setPalette(system_palette);
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    qApp->styleHints()->setColorScheme(is_home_theme ? Qt::ColorScheme::Light
+                                                     : Qt::ColorScheme::Unknown);
+#endif
     QStringList theme_paths(default_theme_paths);
 
     if (is_default_theme || current_theme.isEmpty()) {
@@ -4401,6 +4415,25 @@ void GMainWindow::UpdateUITheme() {
                 for (const auto& [name, color] : tokens) {
                     qss.replace(QLatin1String(name), color.name());
                 }
+                QPalette light;
+                const QColor disabled_text(0x8D, 0x99, 0xA8);
+                light.setColor(QPalette::Window, QColor(0xFB, 0xFD, 0xFF));
+                light.setColor(QPalette::WindowText, t.text);
+                light.setColor(QPalette::Base, Qt::white);
+                light.setColor(QPalette::AlternateBase, window_bg);
+                light.setColor(QPalette::Text, t.text);
+                light.setColor(QPalette::Button, QColor(0xF7, 0xFA, 0xFE));
+                light.setColor(QPalette::ButtonText, t.text);
+                light.setColor(QPalette::ToolTipBase, t.text);
+                light.setColor(QPalette::ToolTipText, Qt::white);
+                light.setColor(QPalette::Highlight, t.accent);
+                light.setColor(QPalette::HighlightedText, Qt::white);
+                light.setColor(QPalette::PlaceholderText, t.text_muted);
+                light.setColor(QPalette::Link, t.accent);
+                for (const auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText}) {
+                    light.setColor(QPalette::Disabled, role, disabled_text);
+                }
+                qApp->setPalette(light);
             }
             qApp->setStyleSheet(qss);
             setStyleSheet(qss);

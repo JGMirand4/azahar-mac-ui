@@ -339,6 +339,56 @@ QCheckBox, QRadioButton, QLabel {
     background: transparent;
 }
 
+QCheckBox, QRadioButton {
+    spacing: 8px;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 18px;
+    height: 18px;
+    border: 1px solid @border@;
+    background-color: #FFFFFF;
+}
+
+QCheckBox::indicator {
+    border-radius: 6px;
+}
+
+QRadioButton::indicator {
+    border-radius: 10px;
+}
+
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border-color: @accent@;
+}
+
+QCheckBox::indicator:checked, QCheckBox::indicator:indeterminate {
+    background-color: @accent@;
+    border-color: @accent@;
+    image: url(:/home3ds/check.svg);
+}
+
+QRadioButton::indicator:checked {
+    border-color: @accent@;
+    background-color: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5,
+                                      stop: 0 @accent@, stop: 0.45 @accent@,
+                                      stop: 0.5 #FFFFFF, stop: 1 #FFFFFF);
+}
+
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+    background-color: #EEF3F9;
+    border-color: #D5E1EE;
+}
+
+/* Paginas das configuracoes: deixam o fundo do painel aparecer, qualquer que seja a paleta. */
+QScrollArea {
+    background: transparent;
+}
+
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+
 QCheckBox:disabled, QRadioButton:disabled, QLabel:disabled {
     color: #8D99A8;
 }

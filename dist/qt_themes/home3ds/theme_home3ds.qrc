@@ -22,5 +22,6 @@
     <qresource prefix="home3ds">
         <file>style.qss</file>
         <file>chevron_down.svg</file>
+        <file>check.svg</file>
     </qresource>
 </RCC>
