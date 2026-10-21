@@ -219,11 +219,6 @@ private:
     QPushButton* play_button = nullptr;
     QPushButton* favorite_button = nullptr;
     QPushButton* more_button = nullptr;
-    // Acoes embaixo do carrossel (o destaque do topo some nesse modo).
-    QWidget* carousel_actions = nullptr;
-    QPushButton* c_play = nullptr;
-    QPushButton* c_favorite = nullptr;
-    QPushButton* c_more = nullptr;
     QPushButton* surprise_button = nullptr;
     ListHeader* list_header = nullptr;
     QWidget* grid_panel_widget = nullptr;

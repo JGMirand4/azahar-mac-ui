@@ -1728,52 +1728,6 @@ void HomeView::BuildUi() {
     carousel = new CarouselWidget(this, grid_panel);
     grid_layout->addWidget(carousel, 1);
 
-    // Jogar, favoritar e mais opcoes embaixo da capa: no carrossel o destaque do topo some.
-    carousel_actions = new QWidget(grid_panel);
-    auto* ca_layout = new QHBoxLayout(carousel_actions);
-    ca_layout->setContentsMargins(0, 0, 0, 4);
-    ca_layout->setSpacing(12);
-    ca_layout->addStretch(1);
-    c_play = new QPushButton(tr("Play"), carousel_actions);
-    c_play->setObjectName(QStringLiteral("play"));
-    c_play->setCursor(Qt::PointingHandCursor);
-    c_play->setFont(RoundedFont(19, QFont::Bold));
-    c_play->setIcon(play_button->icon());
-    c_play->setIconSize(QSize(32, 32));
-    connect(c_play, &QPushButton::clicked, this, [this] {
-        if (const GameInfo* game = CurrentGame()) {
-            RequestLaunch(game->path);
-        }
-    });
-    c_favorite = new QPushButton(carousel_actions);
-    c_favorite->setObjectName(QStringLiteral("roundButton"));
-    c_favorite->setCursor(Qt::PointingHandCursor);
-    c_favorite->setCheckable(true);
-    c_favorite->setToolTip(tr("Favorite") + QStringLiteral("  \u2022  F"));
-    c_favorite->setAccessibleName(tr("Favorite"));
-    c_favorite->setIconSize(QSize(22, 22));
-    connect(c_favorite, &QPushButton::clicked, this, [this] {
-        if (const GameInfo* game = CurrentGame()) {
-            PlaySound(static_cast<int>(SoundBank::Sound::Favorite));
-            emit FavoriteToggleRequested(game->program_id);
-        }
-    });
-    c_more = new QPushButton(carousel_actions);
-    c_more->setObjectName(QStringLiteral("roundButton"));
-    c_more->setCursor(Qt::PointingHandCursor);
-    c_more->setToolTip(tr("More options"));
-    c_more->setAccessibleName(tr("More options"));
-    c_more->setIcon(MakeIcon(Glyph::Dots, theme.text, 22, dpr));
-    c_more->setIconSize(QSize(22, 22));
-    connect(c_more, &QPushButton::clicked, this, [this] {
-        ShowContextMenuForCurrent(c_more->mapToGlobal(QPoint(0, c_more->height())));
-    });
-    ca_layout->addWidget(c_play);
-    ca_layout->addWidget(c_favorite);
-    ca_layout->addWidget(c_more);
-    ca_layout->addStretch(1);
-    grid_layout->addWidget(carousel_actions);
-
     empty_state = new QWidget(grid_panel);
     auto* empty_layout = new QVBoxLayout(empty_state);
     empty_layout->setAlignment(Qt::AlignCenter);
@@ -2272,7 +2226,6 @@ void HomeView::ApplyViewMode() {
     const bool empty = visible_count == 0;
     grid->setVisible(!empty && view_mode != 0);
     carousel->setVisible(!empty && view_mode == 0);
-    carousel_actions->setVisible(!empty && view_mode == 0);
     list_header->setVisible(!empty && view_mode == 2);
     empty_state->setVisible(empty);
 }
@@ -2591,9 +2544,6 @@ void HomeView::UpdateHero() {
     play_button->setEnabled(has_game);
     more_button->setEnabled(has_game);
     favorite_button->setEnabled(has_game);
-    c_play->setEnabled(has_game);
-    c_more->setEnabled(has_game);
-    c_favorite->setEnabled(has_game);
 
     if (!has_game) {
         hero_title->setText(tr("No games found"));
@@ -2604,7 +2554,6 @@ void HomeView::UpdateHero() {
         hero_panel->setProperty("tint", QColor());
         hero_panel->update();
         favorite_button->setIcon(MakeIcon(Glyph::Star, theme.text, 22, dpr));
-        c_favorite->setIcon(MakeIcon(Glyph::Star, theme.text, 22, dpr));
         UpdateTint();
         return;
     }
@@ -2633,8 +2582,6 @@ void HomeView::UpdateHero() {
     favorite_button->setChecked(game->favorite);
     favorite_button->setIcon(
         MakeIcon(Glyph::Star, theme.text, 22, dpr, game->favorite, theme.favorite));
-    c_favorite->setChecked(game->favorite);
-    c_favorite->setIcon(MakeIcon(Glyph::Star, theme.text, 22, dpr, game->favorite, theme.favorite));
     hero_art->SetGame(game->icon, game->title, game->custom_cover);
     hero_panel->setProperty("tint", hero_art->Base());
     hero_panel->update();
@@ -2722,16 +2669,18 @@ void HomeView::resizeEvent(QResizeEvent* event) {
 }
 
 void HomeView::UpdateHeroSize() {
-    // Carrossel: o jogo selecionado ja aparece grande no proprio carrossel (com as acoes embaixo),
-    // entao o destaque do topo some. Grade e lista usam o destaque compacto; em janelas baixas,
-    // na biblioteca ou sem jogos ele tambem some, para sobrar espaco.
+    // Em janelas estreitas a arte do jogo some para dar espaco ao texto.
+    // O destaque ocupa cerca de 29% da altura, para sobrar espaco para a grade.
+    // Em janelas baixas ele fica compacto: so titulo e botoes (o carrossel encolhe sozinho).
+    // Grade e lista escondem o destaque em janelas muito baixas; biblioteca e lista vazia tambem.
     const bool was_compact = compact;
-    compact = view_mode == 0 || height() < 1000;
+    compact = height() < (view_mode == 0 ? 900 : 1000);
     const int hero_height =
         compact ? 168 : std::clamp(static_cast<int>(height() * 0.29), 232, 300);
     hero_panel->setFixedHeight(hero_height + kShadowTop + kShadowBottom);
     hero_art->setVisible(width() >= 900 && !compact);
-    hero_panel->setVisible(!library_mode && visible_count > 0 && view_mode != 0 && height() >= 760);
+    hero_panel->setVisible(!library_mode && visible_count > 0 &&
+                           (view_mode == 0 || height() >= 760));
     if (compact != was_compact) {
         UpdateHero();
     }
