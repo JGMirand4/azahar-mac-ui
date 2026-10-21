@@ -8077,6 +8077,18 @@ Games you play show up here.</source>
         <translation>Nada jogado ainda.
 Os jogos que você jogar aparecem aqui.</translation>
     </message>
+    <message>
+        <source>Total play time across your library</source>
+        <translation>Tempo total de jogo na sua biblioteca</translation>
+    </message>
+    <message>
+        <source>h played</source>
+        <translation>h jogadas</translation>
+    </message>
+    <message>
+        <source>min played</source>
+        <translation>min jogadas</translation>
+    </message>
 </context>
 <context>
     <name>ConfigureUi</name>

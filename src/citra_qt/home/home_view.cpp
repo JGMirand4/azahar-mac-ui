@@ -280,6 +280,48 @@ QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool fille
     return QIcon(MakeGlyph(glyph, color, size, dpr, filled, fill_color));
 }
 
+/// Moeda dourada (estilo "Moeda de Jogo" do 3DS) com uma estrela no centro.
+QPixmap MakeCoin(int size, qreal dpr) {
+    QPixmap pm(QSize(size, size) * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r(1, 1, size - 2, size - 2);
+    QLinearGradient rim(r.topLeft(), r.bottomRight());
+    rim.setColorAt(0.0, QColor(0xFF, 0xE0, 0x6B));
+    rim.setColorAt(1.0, QColor(0xD9, 0x96, 0x12));
+    p.setPen(QPen(QColor(0xB8, 0x77, 0x0A), 1.0));
+    p.setBrush(rim);
+    p.drawEllipse(r);
+    const QRectF inner = r.adjusted(size * 0.11, size * 0.11, -size * 0.11, -size * 0.11);
+    QLinearGradient face(inner.topLeft(), inner.bottomRight());
+    face.setColorAt(0.0, QColor(0xFF, 0xF1, 0xA8));
+    face.setColorAt(1.0, QColor(0xF2, 0xB7, 0x2A));
+    p.setPen(QPen(QColor(0xD9, 0x96, 0x12, 200), 0.8));
+    p.setBrush(face);
+    p.drawEllipse(inner);
+    QPainterPath star;
+    const QPointF c = r.center();
+    const qreal outer = size * 0.27;
+    const qreal inside = outer * 0.45;
+    for (int i = 0; i < 10; ++i) {
+        const qreal angle = -M_PI / 2 + i * M_PI / 5;
+        const qreal radius = (i % 2 == 0) ? outer : inside;
+        const QPointF pt(c.x() + radius * std::cos(angle), c.y() + radius * std::sin(angle));
+        if (i == 0) {
+            star.moveTo(pt);
+        } else {
+            star.lineTo(pt);
+        }
+    }
+    star.closeSubpath();
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0xC9, 0x84, 0x0C));
+    p.drawPath(star);
+    return pm;
+}
+
 /// Barra lateral classica das capas de jogos de 3DS: faixa branca com o quadrado laranja da
 /// "Nintendo Network" no topo, o logotipo "NINTENDO 3DS" na vertical (lido de baixo para cima,
 /// com o "3" vermelho) e um filete preto na borda direita. Deve ser desenhada com o recorte
@@ -1760,6 +1802,22 @@ void HomeView::BuildUi() {
         console_button->setChecked(!checked); // volta ao estado real ate o app confirmar
         emit ConsoleModeRequested();
     });
+    coin_pill = new QFrame(right);
+    coin_pill->setObjectName(QStringLiteral("pill"));
+    coin_pill->setFixedHeight(46);
+    coin_pill->setToolTip(tr("Total play time across your library"));
+    auto* coin_layout = new QHBoxLayout(coin_pill);
+    coin_layout->setContentsMargins(8, 0, 20, 0);
+    coin_layout->setSpacing(10);
+    auto* coin_icon = new QLabel(coin_pill);
+    coin_icon->setFixedSize(32, 32);
+    coin_icon->setPixmap(MakeCoin(32, dpr));
+    coin_label = new QLabel(coin_pill);
+    coin_label->setObjectName(QStringLiteral("coinText"));
+    coin_layout->addWidget(coin_icon);
+    coin_layout->addWidget(coin_label);
+    coin_pill->hide();
+    right_layout->addWidget(coin_pill);
     right_layout->addWidget(battery_pill);
     right_layout->addWidget(console_button);
     right_layout->addWidget(settings_button);
@@ -2174,6 +2232,7 @@ void HomeView::RebuildStyleSheet() {
 #homeRoot QLabel#appTag { color: @on_bg_muted@; }
 #homeRoot QLabel#heroEyebrow { color: @accent@; }
 #homeRoot QLabel#clockDate { color: @muted@; }
+#homeRoot QLabel#coinText { color: @text@; background: transparent; }
 #homeRoot QLabel#heroDesc { color: @body@; }
 #homeRoot QLabel#heroHours { color: @muted@; }
 #homeRoot QFrame#pill {
@@ -2347,6 +2406,19 @@ void HomeView::SetBackgroundColor(const QColor& color) {
 
 void HomeView::SetGames(std::vector<GameInfo> new_games) {
     games = std::move(new_games);
+    qulonglong total_seconds = 0;
+    for (const GameInfo& game : games) {
+        total_seconds += game.play_time_seconds;
+    }
+    coin_pill->setVisible(total_seconds > 0);
+    if (total_seconds > 0) {
+        const qulonglong hours = total_seconds / 3600;
+        const QString value = hours > 0 ? QString::number(hours) : QString::number(total_seconds / 60);
+        const QString unit = hours > 0 ? tr("h played") : tr("min played");
+        coin_label->setText(QStringLiteral("<span style='font-size:22px; font-weight:700;'>%1</span>"
+                                           "&nbsp;<span style='font-size:13px;'>%2</span>")
+                                .arg(value, unit.toHtmlEscaped()));
+    }
     RefreshModel();
 }
 
