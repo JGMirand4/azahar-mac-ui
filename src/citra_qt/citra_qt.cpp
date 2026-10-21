@@ -1735,7 +1735,7 @@ void GMainWindow::ShutdownGame() {
     loading_screen->hide();
     loading_screen->Clear();
 
-    if (game_list->IsEmpty()) {
+    if (game_list->IsEmpty() && !game_list->IsHomeMode()) {
         game_list_placeholder->show();
     } else {
         game_list->show();
@@ -2321,6 +2321,9 @@ void GMainWindow::OnGameListAddDirectory() {
 void GMainWindow::OnGameListShowList(bool show) {
     if (emulation_running && ui->action_Single_Window_Mode->isChecked())
         return;
+    // A tela inicial tem o proprio estado vazio (botao "Pastas"), entao nunca cede lugar ao
+    // placeholder antigo.
+    show = show || game_list->IsHomeMode();
     game_list->setVisible(show);
     game_list_placeholder->setVisible(!show);
 };
