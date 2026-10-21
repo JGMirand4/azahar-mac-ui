@@ -275,6 +275,8 @@ private slots:
     void OnDisplayTitleBars(bool);
     void InitializeHotkeys();
     void ToggleFullscreen();
+    void OnToggleConsoleMode(bool checked);
+    void ApplyConsoleMode();
     void ToggleSecondaryFullscreen();
     void ChangeScreenLayout();
     void ChangeSmallScreenPosition();
@@ -387,6 +389,10 @@ private:
 
     // Whether emulation is currently running in Citra.
     bool emulation_running = false;
+    // Modo console: tela cheia sem menus; os jogos abrem em tela cheia e voltam para o HOME.
+    bool console_forced_fullscreen = false;
+    bool console_applied = false;
+    QByteArray console_saved_geometry;
     std::unique_ptr<EmuThread> emu_thread;
     // The title of the game currently running
     QString game_title;

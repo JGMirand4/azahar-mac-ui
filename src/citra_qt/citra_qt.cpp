@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPalette>
+#include <QStyleHints>
 #include <QSysInfo>
 #include <QtConcurrent/QtConcurrentMap>
 #include <QtConcurrent/QtConcurrentRun>
@@ -71,6 +72,8 @@
 #include "citra_qt/dumping/dumping_dialog.h"
 #endif
 #include "citra_qt/game_list.h"
+#include "citra_qt/home/home_theme.h"
+#include "citra_qt/home/popup_style.h"
 #include "citra_qt/hotkeys.h"
 #include "citra_qt/loading_screen.h"
 #include "citra_qt/movie/movie_play_dialog.h"
@@ -492,6 +495,12 @@ GMainWindow::GMainWindow(Core::System& system_)
     secondary_window->setWindowIcon(azahar_icon);
 
     show();
+
+    ui->action_Console_Mode->setChecked(UISettings::values.console_mode.GetValue());
+    game_list->SetConsoleModeChecked(UISettings::values.console_mode.GetValue());
+    if (UISettings::values.console_mode.GetValue()) {
+        QTimer::singleShot(0, this, [this] { ApplyConsoleMode(); });
+    }
 
     // If the theme is updated before show() it doesn't apply properly, so do it again here.
     // We still need the earlier call to make sure that the icons are set up correctly in the
@@ -1031,6 +1040,7 @@ void GMainWindow::RestoreUIState() {
     OnDisplayTitleBars(ui->action_Display_Dock_Widget_Headers->isChecked());
 
     ui->action_Show_Filter_Bar->setChecked(UISettings::values.show_filter_bar.GetValue());
+    ui->action_Show_Home_Screen->setChecked(game_list->IsHomeMode());
     game_list->SetFilterVisible(ui->action_Show_Filter_Bar->isChecked());
 
     ui->action_Show_Status_Bar->setChecked(UISettings::values.show_status_bar.GetValue());
@@ -1085,6 +1095,14 @@ void GMainWindow::ConnectAppEvents() {
 
 void GMainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::GameChosen, this, &GMainWindow::OnGameListLoadFile);
+    connect(game_list, &GameList::OpenSettingsRequested, this, &GMainWindow::OnConfigure);
+    connect(game_list, &GameList::ConsoleModeRequested, this,
+            [this] { ui->action_Console_Mode->toggle(); });
+    connect(ui->action_Console_Mode, &QAction::toggled, this, &GMainWindow::OnToggleConsoleMode);
+    connect(game_list, &GameList::HomeModeChanged, ui->action_Show_Home_Screen,
+            &QAction::setChecked);
+    connect(ui->action_Show_Home_Screen, &QAction::triggered, game_list,
+            [this](bool checked) { game_list->SetHomeMode(checked); });
     connect(game_list, &GameList::OpenDirectory, this, &GMainWindow::OnGameListOpenDirectory);
     connect(game_list, &GameList::OpenFolderRequested, this, &GMainWindow::OnGameListOpenFolder);
     connect(game_list, &GameList::RemovePlayTimeRequested, this,
@@ -1654,6 +1672,11 @@ void GMainWindow::BootGame(const QString& filename) {
     loading_screen->show();
 
     emulation_running = true;
+    if (UISettings::values.console_mode.GetValue() && !ui->action_Fullscreen->isChecked()) {
+        // No modo console o jogo sempre abre em tela cheia (e a tela cheia some ao sair).
+        console_forced_fullscreen = true;
+        ui->action_Fullscreen->setChecked(true);
+    }
     if (ui->action_Fullscreen->isChecked()) {
         ShowFullscreen();
     }
@@ -1730,7 +1753,7 @@ void GMainWindow::ShutdownGame() {
     loading_screen->hide();
     loading_screen->Clear();
 
-    if (game_list->IsEmpty()) {
+    if (game_list->IsEmpty() && !game_list->IsHomeMode()) {
         game_list_placeholder->show();
     } else {
         game_list->show();
@@ -2316,6 +2339,9 @@ void GMainWindow::OnGameListAddDirectory() {
 void GMainWindow::OnGameListShowList(bool show) {
     if (emulation_running && ui->action_Single_Window_Mode->isChecked())
         return;
+    // A tela inicial tem o proprio estado vazio (botao "Pastas"), entao nunca cede lugar ao
+    // placeholder antigo.
+    show = show || game_list->IsHomeMode();
     game_list->setVisible(show);
     game_list_placeholder->setVisible(!show);
 };
@@ -2739,6 +2765,38 @@ void GMainWindow::OnStopGame() {
     graphics_api_button->setEnabled(true);
     Settings::RestoreGlobalState(false);
     UpdateStatusButtons();
+    if (console_forced_fullscreen) {
+        console_forced_fullscreen = false;
+        ui->action_Fullscreen->setChecked(false);
+    }
+    ApplyConsoleMode(); // volta para o HOME em tela cheia
+}
+
+void GMainWindow::OnToggleConsoleMode(bool checked) {
+    UISettings::values.console_mode.SetValue(checked);
+    game_list->SetConsoleModeChecked(checked);
+    ApplyConsoleMode();
+}
+
+void GMainWindow::ApplyConsoleMode() {
+    if (emulation_running) {
+        return; // durante o jogo valem as regras normais de tela cheia
+    }
+    if (UISettings::values.console_mode.GetValue()) {
+        if (!console_applied) {
+            console_saved_geometry = saveGeometry();
+            console_applied = true;
+        }
+        ui->menubar->hide();
+        statusBar()->hide();
+        showFullScreen();
+    } else if (console_applied) {
+        console_applied = false;
+        ui->menubar->show();
+        statusBar()->setVisible(ui->action_Show_Status_Bar->isChecked());
+        showNormal();
+        restoreGeometry(console_saved_geometry);
+    }
 }
 
 void GMainWindow::OnLoadComplete() {
@@ -3045,6 +3103,8 @@ void GMainWindow::OnConfigure() {
     connect(&configureDialog, &ConfigureDialog::LanguageChanged, this,
             &GMainWindow::OnLanguageChanged);
     auto old_theme = UISettings::values.theme;
+    const auto old_accent = UISettings::values.home_accent_color.GetValue();
+    const auto old_bg_top = UISettings::values.home_bg_top.GetValue();
     const int old_input_profile_index = Settings::values.current_input_profile_index;
     const auto old_input_profiles = Settings::values.input_profiles;
     const auto old_touch_from_button_maps = Settings::values.touch_from_button_maps;
@@ -3059,7 +3119,9 @@ void GMainWindow::OnConfigure() {
     if (result == QDialog::Accepted) {
         configureDialog.ApplyConfiguration();
         InitializeHotkeys();
-        if (UISettings::values.theme != old_theme) {
+        if (UISettings::values.theme != old_theme ||
+            UISettings::values.home_accent_color.GetValue() != old_accent ||
+            UISettings::values.home_bg_top.GetValue() != old_bg_top) {
             UpdateUITheme();
         }
 #ifdef ENABLE_DISCORD_RPC
@@ -3077,6 +3139,7 @@ void GMainWindow::OnConfigure() {
             multiplayer_state->UpdateCredentials();
         emit UpdateThemedIcons();
         SyncMenuUISettings();
+        game_list->ApplyHomeSettings();
         game_list->RefreshGameDirectory();
         config->Save();
         if (UISettings::values.hide_mouse && emulation_running) {
@@ -4279,6 +4342,27 @@ void GMainWindow::UpdateUITheme() {
 
     const QString& current_theme = UISettings::values.theme;
     const bool is_default_theme = (current_theme == default_system_theme);
+
+    // Menus e listas suspensas arredondados (so no tema Home 3DS).
+    static Home::PopupRounder* popup_rounder = nullptr;
+    if (popup_rounder == nullptr) {
+        popup_rounder = new Home::PopupRounder(qApp);
+        qApp->installEventFilter(popup_rounder);
+    }
+    popup_rounder->SetEnabled(current_theme == QStringLiteral("home3ds"));
+
+    // O tema Home 3DS e claro: usa paleta e esquema de cores claros, senao o modo escuro do
+    // sistema deixa texto escuro sobre fundo escuro nas configuracoes. Os outros temas voltam
+    // para a paleta original do sistema.
+    static const QPalette system_palette = qApp->palette();
+    const bool is_home_theme = current_theme == QStringLiteral("home3ds");
+    if (!is_home_theme) {
+        qApp->setPalette(system_palette);
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    qApp->styleHints()->setColorScheme(is_home_theme ? Qt::ColorScheme::Light
+                                                     : Qt::ColorScheme::Unknown);
+#endif
     QStringList theme_paths(default_theme_paths);
 
     if (is_default_theme || current_theme.isEmpty()) {
@@ -4286,8 +4370,11 @@ void GMainWindow::UpdateUITheme() {
         QFile f(theme_uri);
         if (f.open(QFile::ReadOnly | QFile::Text)) {
             QTextStream ts(&f);
-            qApp->setStyleSheet(ts.readAll());
-            setStyleSheet(ts.readAll());
+            // Le o arquivo uma unica vez: a segunda leitura voltava vazia e a janela principal
+            // ficava com o estilo do tema anterior.
+            const QString default_qss = ts.readAll();
+            qApp->setStyleSheet(default_qss);
+            setStyleSheet(default_qss);
         } else {
             LOG_ERROR(Frontend,
                       "Unable to open default stylesheet, falling back to empty stylesheet");
@@ -4301,8 +4388,55 @@ void GMainWindow::UpdateUITheme() {
         QFile f(theme_uri);
         if (f.open(QFile::ReadOnly | QFile::Text)) {
             QTextStream ts(&f);
-            qApp->setStyleSheet(ts.readAll());
-            setStyleSheet(ts.readAll());
+            QString qss = ts.readAll();
+            if (current_theme == QStringLiteral("home3ds")) {
+                // O tema Home 3DS deriva todas as cores da cor de destaque escolhida.
+                const auto to_color = [](const std::string& value) {
+                    return value.empty() ? QColor() : QColor(QString::fromStdString(value));
+                };
+                const Home::Theme t = Home::Theme::FromColors(
+                    QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())),
+                    to_color(UISettings::values.home_bg_top.GetValue()));
+                // As janelas do app usam sempre um fundo claro (texto escuro); se o fundo
+                // escolhido for escuro, ele so vale para a tela inicial.
+                const QColor window_bg =
+                    t.on_bg.lightnessF() > 0.5f ? Home::Theme::Mix(t.bg, Qt::white, 0.9f) : t.bg;
+                const std::pair<const char*, QColor> tokens[] = {
+                    {"@accent_dark@", t.accent.darker(115)},
+                    {"@accent@", t.accent},
+                    {"@tint_hover@", window_bg.darker(106)},
+                    {"@tint@", window_bg},
+                    {"@border@", window_bg.darker(115)},
+                    {"@surface@", QColor(0xFB, 0xFD, 0xFF)},
+                    {"@bg@", Home::Theme::Mix(window_bg, Qt::white, 0.5f)},
+                    {"@text@", t.text},
+                    {"@muted@", t.text_muted},
+                };
+                for (const auto& [name, color] : tokens) {
+                    qss.replace(QLatin1String(name), color.name());
+                }
+                QPalette light;
+                const QColor disabled_text(0x8D, 0x99, 0xA8);
+                light.setColor(QPalette::Window, QColor(0xFB, 0xFD, 0xFF));
+                light.setColor(QPalette::WindowText, t.text);
+                light.setColor(QPalette::Base, Qt::white);
+                light.setColor(QPalette::AlternateBase, window_bg);
+                light.setColor(QPalette::Text, t.text);
+                light.setColor(QPalette::Button, QColor(0xF7, 0xFA, 0xFE));
+                light.setColor(QPalette::ButtonText, t.text);
+                light.setColor(QPalette::ToolTipBase, t.text);
+                light.setColor(QPalette::ToolTipText, Qt::white);
+                light.setColor(QPalette::Highlight, t.accent);
+                light.setColor(QPalette::HighlightedText, Qt::white);
+                light.setColor(QPalette::PlaceholderText, t.text_muted);
+                light.setColor(QPalette::Link, t.accent);
+                for (const auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText}) {
+                    light.setColor(QPalette::Disabled, role, disabled_text);
+                }
+                qApp->setPalette(light);
+            }
+            qApp->setStyleSheet(qss);
+            setStyleSheet(qss);
         } else {
             LOG_ERROR(Frontend, "Unable to set style, stylesheet file not found");
         }
@@ -4482,7 +4616,10 @@ void GMainWindow::UpdateWindowTitle() {
 }
 
 void GMainWindow::UpdateUISettings() {
-    if (!ui->action_Fullscreen->isChecked()) {
+    if (console_applied && !console_saved_geometry.isEmpty()) {
+        // Em modo console a janela esta em tela cheia: guarda o tamanho "normal" anterior.
+        UISettings::values.geometry = console_saved_geometry;
+    } else if (!ui->action_Fullscreen->isChecked()) {
         UISettings::values.geometry = saveGeometry();
         UISettings::values.renderwindow_geometry = render_window->saveGeometry();
     }
@@ -4495,7 +4632,8 @@ void GMainWindow::UpdateUISettings() {
     UISettings::values.microprofile_visible = microProfileDialog->isVisible();
 #endif
     UISettings::values.single_window_mode = ui->action_Single_Window_Mode->isChecked();
-    UISettings::values.fullscreen = ui->action_Fullscreen->isChecked();
+    UISettings::values.fullscreen =
+        ui->action_Fullscreen->isChecked() && !console_forced_fullscreen;
     UISettings::values.display_titlebar = ui->action_Display_Dock_Widget_Headers->isChecked();
     UISettings::values.show_filter_bar = ui->action_Show_Filter_Bar->isChecked();
     UISettings::values.show_status_bar = ui->action_Show_Status_Bar->isChecked();
@@ -4710,6 +4848,7 @@ int LaunchQtFrontend(int argc, char* argv[]) {
     Q_INIT_RESOURCE(theme_colorful_dark);
     Q_INIT_RESOURCE(theme_colorful_midnight_blue);
     Q_INIT_RESOURCE(theme_default);
+    Q_INIT_RESOURCE(theme_home3ds);
     Q_INIT_RESOURCE(theme_qdarkstyle);
     Q_INIT_RESOURCE(theme_qdarkstyle_midnight_blue);
 #ifdef ENABLE_QT_TRANSLATION

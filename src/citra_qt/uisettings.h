@@ -30,7 +30,7 @@ struct Shortcut {
     ContextualShortcut shortcut;
 };
 
-using Themes = std::array<std::pair<const char*, const char*>, 6>;
+using Themes = std::array<std::pair<const char*, const char*>, 7>;
 extern const Themes themes;
 
 struct GameDir {
@@ -113,6 +113,22 @@ struct Values {
     Settings::Setting<GameListText> game_list_row_2{GameListText::FileName, Settings::Keys::row2};
     Settings::Setting<bool> game_list_hide_no_icon{false, Settings::Keys::hideNoIcon};
     Settings::Setting<bool> game_list_single_line_mode{false, Settings::Keys::singleLineMode};
+    // Tela inicial estilo HOME do 3DS (grade de cards) em vez da lista classica.
+    Settings::Setting<bool> game_list_use_home_view{true, Settings::Keys::useHomeScreen};
+    Settings::Setting<std::string> home_accent_color{"#0F6FD0", Settings::Keys::homeAccentColor};
+    // Cores do degrade de fundo da tela inicial; vazio = automatico (derivado do destaque).
+    Settings::Setting<std::string> home_bg_top{"", Settings::Keys::homeBgTop};
+    Settings::Setting<std::string> home_bg_bottom{"", Settings::Keys::homeBgBottom};
+    // Baixa as capas dos jogos automaticamente (GameTDB) e guarda em cache.
+    Settings::Setting<bool> home_auto_covers{true, Settings::Keys::homeAutoCovers};
+    // Modo console: janela em tela cheia, sem menus, e os jogos abrem em tela cheia.
+    Settings::Setting<bool> console_mode{false, Settings::Keys::consoleMode};
+    // Sons curtos de navegacao na tela inicial.
+    Settings::Setting<bool> home_sounds{true, Settings::Keys::homeSounds};
+    // Icones dos botoes do controle na tela inicial: 0 = automatico, 1 = Xbox, 2 = PlayStation.
+    Settings::Setting<int> home_pad_style{0, Settings::Keys::homePadStyle};
+    // Formato do icone dos jogos na tela inicial: 0 = normal, 1 = cartucho de 3DS.
+    Settings::Setting<int> home_icon_style{0, Settings::Keys::homeIconStyle};
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

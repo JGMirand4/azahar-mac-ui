@@ -4119,6 +4119,34 @@ Arraste os pontos para alterar a posição ou clique duas vezes nas células da 
         <source>&lt;System&gt;</source>
         <translation>&lt;Sistema&gt;</translation>
     </message>
+    <message>
+        <source>Controller button icons</source>
+        <translation>Ícones dos botões do controle</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automático</translation>
+    </message>
+    <message>
+        <source>Xbox (A B X Y)</source>
+        <translation>Xbox (A B X Y)</translation>
+    </message>
+    <message>
+        <source>PlayStation</source>
+        <translation>PlayStation</translation>
+    </message>
+    <message>
+        <source>Game icon style</source>
+        <translation>Formato do ícone dos jogos</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Normal</translation>
+    </message>
+    <message>
+        <source>3DS cartridge</source>
+        <translation>Cartucho de 3DS</translation>
+    </message>
 </context>
 <context>
     <name>ConfigureWeb</name>
@@ -7844,6 +7872,287 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <location filename="../../src/citra_qt/debugger/wait_tree.cpp" line="443"/>
         <source>Wait Tree</source>
         <translation>Árvore de espera</translation>
+    </message>
+</context>
+<context>
+    <name>Home::HomeView</name>
+    <message>
+        <source>Azahar</source>
+        <translation>Azahar</translation>
+    </message>
+    <message>
+        <source>NINTENDO 3DS EMULATOR</source>
+        <translation>EMULADOR DE NINTENDO 3DS</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Configurações</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Jogar</translation>
+    </message>
+    <message>
+        <source>More options</source>
+        <translation>Mais opções</translation>
+    </message>
+    <message>
+        <source>Favorite</source>
+        <translation>Favorito</translation>
+    </message>
+    <message>
+        <source>My Games</source>
+        <translation>Meus jogos</translation>
+    </message>
+    <message>
+        <source>Sort: %1</source>
+        <translation>Ordenar: %1</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>Tempo de jogo</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Tamanho</translation>
+    </message>
+    <message>
+        <source>Grid view</source>
+        <translation>Visualização em grade</translation>
+    </message>
+    <message>
+        <source>List view</source>
+        <translation>Visualização em lista</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>Início</translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation>Biblioteca</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Buscar</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Pastas</translation>
+    </message>
+    <message>
+        <source>No games found</source>
+        <translation>Nenhum jogo encontrado</translation>
+    </message>
+    <message>
+        <source>Unknown title</source>
+        <translation>Título desconhecido</translation>
+    </message>
+    <message>
+        <source>%1 played</source>
+        <translation>%1 jogadas</translation>
+    </message>
+    <message>
+        <source>Not played yet</source>
+        <translation>Ainda não jogado</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n game(s)</source>
+        <translation>
+            <numerusform>%n jogo</numerusform>
+            <numerusform>%n jogos</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Recently played</source>
+        <translation>Jogados recentemente</translation>
+    </message>
+    <message>
+        <source>Carousel view</source>
+        <translation>Modo carrossel</translation>
+    </message>
+    <message>
+        <source>Navigate</source>
+        <translation>Navegar</translation>
+    </message>
+    <message>
+        <source>Filter</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <source>View</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>Aleatório</translation>
+    </message>
+    <message>
+        <source>Console mode (fullscreen)</source>
+        <translation>Modo console (tela cheia)</translation>
+    </message>
+    <message>
+        <source>D-Pad</source>
+        <translation>Direcional</translation>
+    </message>
+    <message>
+        <source>Menu</source>
+        <translation>Menu</translation>
+    </message>
+    <message>
+        <source>Options</source>
+        <translation>Options</translation>
+    </message>
+    <message>
+        <source>Surprise me</source>
+        <translation>Surpreenda-me</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Todos</translation>
+    </message>
+    <message>
+        <source>Favorites</source>
+        <translation>Favoritos</translation>
+    </message>
+    <message>
+        <source>Played</source>
+        <translation>Jogados</translation>
+    </message>
+    <message>
+        <source>LAST PLAYED</source>
+        <translation>ÚLTIMO JOGADO</translation>
+    </message>
+    <message>
+        <source>SELECTED GAME</source>
+        <translation>JOGO SELECIONADO</translation>
+    </message>
+    <message>
+        <source>Add games folder</source>
+        <translation>Adicionar pasta de jogos</translation>
+    </message>
+    <message>
+        <source>No games yet.
+Add the folder where your games are.</source>
+        <translation>Nenhum jogo ainda.
+Adicione a pasta onde estão seus jogos.</translation>
+    </message>
+    <message>
+        <source>No games match your search.</source>
+        <translation>Nenhum jogo encontrado para a busca.</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>Região</translation>
+    </message>
+    <message>
+        <source>Compatibility</source>
+        <translation>Compatibilidade</translation>
+    </message>
+    <message>
+        <source>Select</source>
+        <translation>Select</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>Criar</translation>
+    </message>
+    <message>
+        <source>Sort</source>
+        <translation>Ordenar</translation>
+    </message>
+</context>
+<context>
+    <name>ConfigureUi</name>
+    <message>
+        <source>Play navigation sounds</source>
+        <translation>Tocar sons de navegação</translation>
+    </message>
+    <message>
+        <source>Download game covers automatically</source>
+        <translation>Baixar as capas dos jogos automaticamente</translation>
+    </message>
+    <message>
+        <source>Use the Home screen (grid view)</source>
+        <translation>Usar a tela inicial (grade)</translation>
+    </message>
+    <message>
+        <source>Home screen accent color</source>
+        <translation>Cor de destaque da tela inicial</translation>
+    </message>
+    <message>
+        <source>Accent color</source>
+        <translation>Cor de destaque</translation>
+    </message>
+    <message>
+        <source>Home screen background (start)</source>
+        <translation>Fundo da tela inicial (início)</translation>
+    </message>
+    <message>
+        <source>Home screen background (end)</source>
+        <translation>Fundo da tela inicial (fim)</translation>
+    </message>
+    <message>
+        <source>Automatic background colors</source>
+        <translation>Cores de fundo automáticas</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Background color (start)</source>
+        <translation>Cor do fundo (início)</translation>
+    </message>
+    <message>
+        <source>Background color (end)</source>
+        <translation>Cor do fundo (fim)</translation>
+    </message>
+</context>
+<context>
+    <name>MainWindow</name>
+    <message>
+        <source>Show Home Screen</source>
+        <translation>Mostrar tela inicial</translation>
+    </message>
+    <message>
+        <source>Console Mode</source>
+        <translation>Modo console</translation>
+    </message>
+</context>
+<context>
+    <name>GameList</name>
+    <message>
+        <source>Change cover...</source>
+        <translation>Alterar capa...</translation>
+    </message>
+    <message>
+        <source>Choose a cover image</source>
+        <translation>Escolha uma imagem de capa</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>Imagens (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
+    </message>
+    <message>
+        <source>Change cover</source>
+        <translation>Alterar capa</translation>
+    </message>
+    <message>
+        <source>Could not open this image.</source>
+        <translation>Não foi possível abrir esta imagem.</translation>
+    </message>
+    <message>
+        <source>Could not save the cover.</source>
+        <translation>Não foi possível salvar a capa.</translation>
+    </message>
+    <message>
+        <source>Restore original cover</source>
+        <translation>Restaurar capa original</translation>
     </message>
 </context>
 </TS>

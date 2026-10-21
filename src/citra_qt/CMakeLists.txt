@@ -132,6 +132,18 @@ add_library(citra_qt STATIC EXCLUDE_FROM_ALL
     game_list_p.h
     game_list_worker.cpp
     game_list_worker.h
+    home/battery_status.cpp
+    home/battery_status.h
+    home/cover_fetcher.cpp
+    home/gamepad.cpp
+    home/gamepad.h
+    home/cover_fetcher.h
+    home/home_theme.h
+    home/home_view.cpp
+    home/home_view.h
+    home/popup_style.h
+    home/sound_bank.cpp
+    home/sound_bank.h
     hotkeys.cpp
     hotkeys.h
     hotkey_monitor.cpp
@@ -212,6 +224,7 @@ endif()
 
 if (APPLE)
   target_sources(citra_qt PUBLIC
+    home/gamepad_mac.mm
     qt_swizzle.h
     qt_swizzle.mm
     util/metal_util.h
@@ -303,7 +316,7 @@ create_target_directory_groups(citra_qt)
 
 target_link_libraries(citra_qt PRIVATE audio_core citra_common citra_core input_common network video_core)
 target_link_libraries(citra_qt PUBLIC Boost::boost Qt6::Widgets)
-target_link_libraries(citra_qt PRIVATE nihstro-headers Qt6::Multimedia Qt6::Concurrent)
+target_link_libraries(citra_qt PRIVATE nihstro-headers Qt6::Multimedia Qt6::Concurrent Qt6::Network)
 target_link_libraries(citra_qt PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
 if (MINGW)
@@ -330,7 +343,7 @@ if (NOT WIN32)
 endif()
 
 if (APPLE)
-    target_link_libraries(citra_qt PRIVATE Qt6::QDarwinCameraPermissionPlugin)
+    target_link_libraries(citra_qt PRIVATE Qt6::QDarwinCameraPermissionPlugin "-framework IOKit" "-framework CoreFoundation" "-framework GameController")
 elseif (UNIX)
     target_link_libraries(citra_qt PUBLIC Qt6::DBus gamemode)
 endif()

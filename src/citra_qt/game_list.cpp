@@ -2,9 +2,17 @@
 // Licensed under GPLv3 or any later version
 // Refer to the LICENSE.txt file included.
 
+#include <algorithm>
 #include <QActionGroup>
 #include <QApplication>
+#include <QColor>
+#include <QDateTime>
+#include <QSettings>
+#include <QTimer>
 #include <QDir>
+#include <QImage>
+#include <QFileDialog>
+#include <QCryptographicHash>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QHBoxLayout>
@@ -16,6 +24,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QModelIndex>
@@ -32,6 +41,8 @@
 #include "citra_qt/game_list.h"
 #include "citra_qt/game_list_p.h"
 #include "citra_qt/game_list_worker.h"
+#include "citra_qt/home/cover_fetcher.h"
+#include "citra_qt/home/home_view.h"
 #include "citra_qt/uisettings.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
@@ -142,7 +153,18 @@ void GameListSearchField::setFocus() {
 GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
     auto* const key_release_eater = new KeyReleaseEater(parent, this);
     layout_filter = new QHBoxLayout;
-    layout_filter->setContentsMargins(8, 8, 8, 8);
+    // Campo de busca em forma de pilula: o proprio widget desenha o fundo arredondado e o
+    // QLineEdit fica sem borda dentro dele.
+    setObjectName(QStringLiteral("gameSearch"));
+    setAttribute(Qt::WA_StyledBackground, true);
+    setMinimumHeight(46);
+    setStyleSheet(QStringLiteral(
+        "#gameSearch { background: #FFFFFF; border: 1px solid rgba(31, 42, 55, 40); "
+        "border-radius: 23px; }"
+        "#gameSearch QLabel { background: transparent; color: #4F5B6B; font-weight: 600; }"
+        "#gameSearch QLineEdit { background: transparent; border: none; color: #14202E; "
+        "padding: 4px 2px; selection-background-color: #0F6FD0; selection-color: #FFFFFF; }"));
+    layout_filter->setContentsMargins(18, 4, 12, 4);
     label_filter = new QLabel;
     edit_filter = new QLineEdit;
     edit_filter->clear();
@@ -153,11 +175,11 @@ GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
     button_filter_close = new QToolButton(this);
     button_filter_close->setText(QStringLiteral("X"));
     button_filter_close->setCursor(Qt::ArrowCursor);
-    button_filter_close->setStyleSheet(
-        QStringLiteral("QToolButton{ border: none; padding: 0px; color: "
-                       "#000000; font-weight: bold; background: #F0F0F0; }"
-                       "QToolButton:hover{ border: none; padding: 0px; color: "
-                       "#EEEEEE; font-weight: bold; background: #E81123}"));
+    button_filter_close->setFixedSize(24, 24);
+    button_filter_close->setStyleSheet(QStringLiteral(
+        "QToolButton{ border: none; padding: 0px; color: #4F5B6B; font-weight: bold; "
+        "background: rgba(31, 42, 55, 22); border-radius: 12px; }"
+        "QToolButton:hover{ color: #FFFFFF; background: #E5484D; }"));
     connect(button_filter_close, &QToolButton::clicked, parent, &GameList::OnFilterCloseClicked);
     layout_filter->setSpacing(10);
     layout_filter->addWidget(label_filter);
@@ -200,6 +222,10 @@ void GameList::OnItemExpanded(const QModelIndex& item) {
 
 // Event in order to filter the gamelist after editing the searchfield
 void GameList::OnTextChanged(const QString& new_text) {
+    if (home_mode) {
+        const int visible = home_view->SetFilter(new_text);
+        search_field->setFilterResult(visible, home_view->GameCount());
+    }
     const int folder_count = tree_view->model()->rowCount();
     QString edit_filter_text = new_text.toLower();
     QStandardItem* folder;
@@ -339,6 +365,31 @@ public:
     }
 };
 
+static QColor ColorFromSetting(const std::string& value) {
+    return value.empty() ? QColor() : QColor(QString::fromStdString(value));
+}
+
+// Chave estavel de um jogo: ID do programa em hexadecimal ou, sem ele, hash do caminho.
+static QString GameKey(u64 program_id, const QString& game_path) {
+    if (program_id != 0) {
+        return QStringLiteral("%1").arg(static_cast<qulonglong>(program_id), 16, 16,
+                                        QLatin1Char{'0'});
+    }
+    return QString::fromLatin1(
+        QCryptographicHash::hash(game_path.toUtf8(), QCryptographicHash::Md5).toHex());
+}
+
+// Estado so da tela inicial (ultimo jogado). Fica ao lado das capas, na pasta do usuario.
+static QString HomeSoundsPath() {
+    return QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+           QStringLiteral("sounds");
+}
+
+static QString HomeStatePath() {
+    return QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+           QStringLiteral("home_state.ini");
+}
+
 GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* parent)
     : QWidget{parent}, play_time_manager{play_time_manager_} {
     watcher = new QFileSystemWatcher(this);
@@ -387,9 +438,270 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
+    home_view = new Home::HomeView(this);
+    home_view->SetLocale(UISettings::values.language.isEmpty()
+                             ? QLocale::system()
+                             : QLocale(UISettings::values.language));
+    home_view->SetBackgroundColor(ColorFromSetting(UISettings::values.home_bg_top.GetValue()));
+    home_view->SetAccentColor(
+        QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    {
+        // Lembra o modo (grade/lista), a ordem e o filtro rapido entre execucoes.
+        const QSettings prefs(HomeStatePath(), QSettings::IniFormat);
+        home_view->SetPreferences(prefs.value(QStringLiteral("view/mode"), 0).toInt(),
+                                  prefs.value(QStringLiteral("view/sort"), 0).toInt(),
+                                  prefs.value(QStringLiteral("view/quick"), 0).toInt());
+    }
+    home_view->SetSoundOptions(HomeSoundsPath(), UISettings::values.home_sounds.GetValue());
+    home_view->SetPadStyle(UISettings::values.home_pad_style.GetValue());
+    home_view->SetIconStyle(UISettings::values.home_icon_style.GetValue());
+    cover_fetcher = new Home::CoverFetcher(
+        QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+            QStringLiteral("covers_auto"),
+        this);
+    cover_refresh_timer = new QTimer(this);
+    cover_refresh_timer->setSingleShot(true);
+    cover_refresh_timer->setInterval(700);
+    connect(cover_refresh_timer, &QTimer::timeout, this, [this] { RebuildHomeView(); });
+    // Varias capas chegam em sequencia: agrupa e atualiza a tela uma vez so.
+    connect(cover_fetcher, &Home::CoverFetcher::CoverReady, this,
+            [this] { cover_refresh_timer->start(); });
+    connect(home_view, &Home::HomeView::PreferencesChanged, this, [this] {
+        QSettings prefs(HomeStatePath(), QSettings::IniFormat);
+        prefs.setValue(QStringLiteral("view/mode"), home_view->GetViewMode());
+        prefs.setValue(QStringLiteral("view/sort"), home_view->GetSortMode());
+        prefs.setValue(QStringLiteral("view/quick"), home_view->GetQuickFilter());
+        prefs.sync();
+    });
+    connect(home_view, &Home::HomeView::GameActivated, this, &GameList::OnHomeGameActivated);
+    connect(home_view, &Home::HomeView::GameContextMenuRequested, this,
+            &GameList::PopupHomeContextMenu);
+    connect(home_view, &Home::HomeView::FavoriteToggleRequested, this,
+            [this](qulonglong id) { ToggleFavorite(id); });
+    connect(home_view, &Home::HomeView::ConsoleModeRequested, this,
+            &GameList::ConsoleModeRequested);
+    connect(home_view, &Home::HomeView::SettingsRequested, this,
+            &GameList::OpenSettingsRequested);
+    connect(home_view, &Home::HomeView::AddFolderRequested, this, &GameList::AddDirectory);
+    connect(home_view, &Home::HomeView::SearchRequested, this,
+            [this] { main_window->filterBarSetChecked(true); });
+    connect(home_view, &Home::HomeView::ClassicViewRequested, this,
+            [this] { SetHomeMode(false, false); }); // so nesta sessao
+
+    layout->addWidget(home_view);
     layout->addWidget(tree_view);
     layout->addWidget(search_field);
     setLayout(layout);
+
+    connect(this, &GameList::GameChosen, this, &GameList::RecordLastPlayed);
+    SetHomeMode(UISettings::values.game_list_use_home_view.GetValue());
+}
+
+void GameList::SetConsoleModeChecked(bool checked) {
+    home_view->SetConsoleMode(checked);
+}
+
+void GameList::SetHomeMode(bool enable, bool persist) {
+    home_mode = enable;
+    home_view->setVisible(enable);
+    tree_view->setVisible(!enable);
+    if (enable) {
+        layout->removeWidget(search_field);
+        home_view->SetSearchWidget(search_field);
+        search_field->setVisible(filter_bar_visible);
+        RebuildHomeView();
+    } else {
+        home_view->TakeSearchWidget();
+        search_field->setParent(this);
+        layout->addWidget(search_field);
+        search_field->setVisible(filter_bar_visible);
+    }
+    if (persist) {
+        UISettings::values.game_list_use_home_view.SetValue(enable);
+    }
+    emit HomeModeChanged(enable);
+}
+
+void GameList::ApplyHomeSettings() {
+    home_view->SetLocale(UISettings::values.language.isEmpty()
+                             ? QLocale::system()
+                             : QLocale(UISettings::values.language));
+    home_view->SetBackgroundColor(ColorFromSetting(UISettings::values.home_bg_top.GetValue()));
+    home_view->SetAccentColor(
+        QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    home_view->SetSoundOptions(HomeSoundsPath(), UISettings::values.home_sounds.GetValue());
+    home_view->SetPadStyle(UISettings::values.home_pad_style.GetValue());
+    home_view->SetIconStyle(UISettings::values.home_icon_style.GetValue());
+    const bool use_home = UISettings::values.game_list_use_home_view.GetValue();
+    if (use_home != home_mode) {
+        SetHomeMode(use_home);
+    }
+}
+
+void GameList::RecordLastPlayed(const QString& path) {
+    u64 program_id = 0;
+    const auto* root = item_model->invisibleRootItem();
+    for (int i = 0; i < root->rowCount() && program_id == 0; ++i) {
+        const QStandardItem* dir = root->child(i, 0);
+        for (int j = 0; dir != nullptr && j < dir->rowCount(); ++j) {
+            const QStandardItem* item = dir->child(j, COLUMN_NAME);
+            if (item != nullptr && item->data(GameListItemPath::FullPathRole).toString() == path) {
+                program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                break;
+            }
+        }
+    }
+    QSettings state(HomeStatePath(), QSettings::IniFormat);
+    state.setValue(QStringLiteral("last_played/") + GameKey(program_id, path),
+                   QDateTime::currentSecsSinceEpoch());
+    state.sync();
+    RebuildHomeView();
+}
+
+void GameList::OnHomeGameActivated(const QString& path) {
+    if (path.isEmpty()) {
+        return;
+    }
+    const QFileInfo file_info(path);
+    if (!file_info.exists() || file_info.isDir()) {
+        return;
+    }
+    search_field->clear();
+    emit GameChosen(path);
+}
+
+// Capas personalizadas ficam em <pasta do usuario>/covers/<id do jogo>.png
+static QString CoverFilePath(u64 program_id, const QString& game_path) {
+    const QString dir = QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+                        QStringLiteral("covers");
+    return dir + QLatin1Char{'/'} + GameKey(program_id, game_path) + QStringLiteral(".png");
+}
+
+void GameList::PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& global_pos) {
+    QMenu context_menu;
+    const QString cover_path = CoverFilePath(info.program_id, info.path);
+    QAction* change_cover = context_menu.addAction(tr("Change cover..."));
+    connect(change_cover, &QAction::triggered, this, [this, info, cover_path] {
+        const QString image = QFileDialog::getOpenFileName(
+            this, tr("Choose a cover image"), QString(),
+            tr("Images (*.png *.jpg *.jpeg *.bmp *.webp)"));
+        if (image.isEmpty()) {
+            return;
+        }
+        QImage source(image);
+        if (source.isNull()) {
+            QMessageBox::warning(this, tr("Change cover"), tr("Could not open this image."));
+            return;
+        }
+        // Mantem a proporcao original (so reduz); o card e o banner recortam ao exibir.
+        QImage square = source.width() > 1280 || source.height() > 1280
+                            ? source.scaled(1280, 1280, Qt::KeepAspectRatio,
+                                            Qt::SmoothTransformation)
+                            : source;
+        QDir().mkpath(QFileInfo(cover_path).absolutePath());
+        if (!square.save(cover_path, "PNG")) {
+            QMessageBox::warning(this, tr("Change cover"), tr("Could not save the cover."));
+            return;
+        }
+        RebuildHomeView();
+    });
+    if (QFileInfo::exists(cover_path)) {
+        QAction* reset_cover = context_menu.addAction(tr("Restore original cover"));
+        connect(reset_cover, &QAction::triggered, this, [this, cover_path] {
+            QFile::remove(cover_path);
+            RebuildHomeView();
+        });
+    }
+    context_menu.addSeparator();
+    AddGamePopup(context_menu, info.path, info.title, info.program_id, info.extdata_id,
+                 static_cast<Service::FS::MediaType>(info.media_type), info.can_insert);
+    context_menu.exec(global_pos);
+}
+
+void GameList::RebuildHomeView() {
+    std::vector<Home::GameInfo> games;
+    const QSettings last_played_state(HomeStatePath(), QSettings::IniFormat);
+    const auto* root = item_model->invisibleRootItem();
+    for (int i = 0; i < root->rowCount(); ++i) {
+        const QStandardItem* dir = root->child(i, 0);
+        if (dir == nullptr) {
+            continue;
+        }
+        const auto type = dir->data(GameListItem::TypeRole).value<GameListItemType>();
+        if (type != GameListItemType::CustomDir && type != GameListItemType::InstalledDir &&
+            type != GameListItemType::SystemDir) {
+            continue;
+        }
+        for (int j = 0; j < dir->rowCount(); ++j) {
+            const QStandardItem* name = dir->child(j, COLUMN_NAME);
+            if (name == nullptr) {
+                continue;
+            }
+            Home::GameInfo info;
+            info.path = name->data(GameListItemPath::FullPathRole).toString();
+            const QString file_name = QFileInfo(info.path).completeBaseName();
+            info.title = name->data(GameListItemPath::TitleRole).toString();
+            if (info.title.isEmpty()) {
+                info.title = file_name;
+            }
+            const QString long_title = name->data(GameListItemPath::LongTitleRole).toString();
+            info.subtitle = long_title.isEmpty() ? file_name : long_title.simplified();
+            info.icon = name->data(GameListItemPath::LargeIconRole).value<QPixmap>();
+            info.program_id = name->data(GameListItemPath::ProgramIdRole).toULongLong();
+            if (const QString cover = CoverFilePath(info.program_id, info.path);
+                QFileInfo::exists(cover)) {
+                if (QPixmap custom(cover); !custom.isNull()) {
+                    info.icon = custom;
+                    info.custom_cover = true;
+                }
+            }
+            if (!info.custom_cover && UISettings::values.home_auto_covers.GetValue()) {
+                // Capa automatica: baixada do GameTDB pelo codigo do jogo e guardada em cache.
+                auto id_it = game_id_cache.find(info.path);
+                if (id_it == game_id_cache.end()) {
+                    id_it = game_id_cache.insert(info.path,
+                                                 Home::CoverFetcher::ReadGameId(info.path));
+                }
+                if (!id_it->isEmpty()) {
+                    if (const QString cached = cover_fetcher->CachedCover(*id_it);
+                        !cached.isEmpty()) {
+                        if (QPixmap art(cached); !art.isNull()) {
+                            info.icon = art;
+                            info.custom_cover = true; // arte de capa real: nao recortar
+                        }
+                    } else {
+                        cover_fetcher->Request(*id_it);
+                    }
+                }
+            }
+            info.extdata_id = name->data(GameListItemPath::ExtdataIdRole).toULongLong();
+            info.media_type = name->data(GameListItemPath::MediaTypeRole).toUInt();
+            info.can_insert = name->data(GameListItemPath::CanInsertRole).toUInt() != 0;
+            info.favorite = UISettings::values.favorited_ids.contains(info.program_id);
+            info.last_played =
+                last_played_state
+                    .value(QStringLiteral("last_played/") + GameKey(info.program_id, info.path), 0)
+                    .toLongLong();
+
+            if (const auto* it = dir->child(j, COLUMN_REGION)) {
+                info.region = it->text().replace(QLatin1Char{'\n'}, QStringLiteral(", "));
+            }
+            if (const auto* it = dir->child(j, COLUMN_COMPATIBILITY)) {
+                info.compat_text = it->text();
+                info.compat_key = it->data(GameListItemCompat::CompatNumberRole).toString();
+            }
+            if (const auto* it = dir->child(j, COLUMN_SIZE)) {
+                info.size_text = it->text();
+                info.size_bytes = it->data(GameListItemSize::SizeRole).toULongLong();
+            }
+            if (const auto* it = dir->child(j, COLUMN_PLAY_TIME)) {
+                info.play_time_text = it->text();
+                info.play_time_seconds = it->data(GameListItemPlayTime::PlayTimeRole).toULongLong();
+            }
+            games.push_back(std::move(info));
+        }
+    }
+    home_view->SetGames(std::move(games));
 }
 
 GameList::~GameList() {
@@ -397,12 +709,13 @@ GameList::~GameList() {
 }
 
 void GameList::SetFilterFocus() {
-    if (tree_view->model()->rowCount() > 0) {
+    if (home_mode || tree_view->model()->rowCount() > 0) {
         search_field->setFocus();
     }
 }
 
 void GameList::SetFilterVisible(bool visibility) {
+    filter_bar_visible = visibility;
     search_field->setVisible(visibility);
 }
 
@@ -506,7 +819,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         children_total += item_model->item(i, 0)->rowCount();
     }
     search_field->setFilterResult(children_total, children_total);
-    if (children_total > 0) {
+    if (children_total > 0 && !home_mode) {
         search_field->setFocus();
     }
     item_model->sort(tree_view->header()->sortIndicatorSection(),
@@ -518,6 +831,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     }
     tree_view->header()->setStretchLastSection(true);
 
+    RebuildHomeView();
     emit PopulatingCompleted();
 }
 
@@ -1161,6 +1475,7 @@ void GameList::ToggleFavorite(u64 program_id) {
             tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), true);
         }
     }
+    home_view->SetFavorite(program_id, UISettings::values.favorited_ids.contains(program_id));
 }
 
 void GameList::AddFavorite(u64 program_id) {

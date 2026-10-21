@@ -849,6 +849,10 @@ void QtConfig::ReadUIValues() {
         UISettings::values.theme =
             ReadSetting(Settings::QKeys::theme, QString::fromUtf8(UISettings::themes[0].second))
                 .toString();
+        // Migracao unica: adota o tema "Home 3DS" para quem ja tinha outro tema salvo.
+        if (!qt_config->value(QStringLiteral("homeThemeApplied"), false).toBool()) {
+            UISettings::values.theme = QString::fromUtf8(UISettings::themes[0].second);
+        }
 #ifdef ENABLE_DISCORD_RPC
         ReadBasicSetting(UISettings::values.enable_discord_presence);
 #endif
@@ -886,6 +890,15 @@ void QtConfig::ReadUIGameListValues() {
     ReadBasicSetting(UISettings::values.game_list_row_2);
     ReadBasicSetting(UISettings::values.game_list_hide_no_icon);
     ReadBasicSetting(UISettings::values.game_list_single_line_mode);
+    ReadBasicSetting(UISettings::values.game_list_use_home_view);
+    ReadBasicSetting(UISettings::values.home_accent_color);
+    ReadBasicSetting(UISettings::values.home_bg_top);
+    ReadBasicSetting(UISettings::values.home_bg_bottom);
+    ReadBasicSetting(UISettings::values.home_auto_covers);
+    ReadBasicSetting(UISettings::values.console_mode);
+    ReadBasicSetting(UISettings::values.home_sounds);
+    ReadBasicSetting(UISettings::values.home_pad_style);
+    ReadBasicSetting(UISettings::values.home_icon_style);
 
     ReadBasicSetting(UISettings::values.show_compat_column);
     ReadBasicSetting(UISettings::values.show_region_column);
@@ -1385,6 +1398,7 @@ void QtConfig::SaveUIValues() {
     if (global) {
         WriteSetting(Settings::QKeys::theme, UISettings::values.theme,
                      QString::fromUtf8(UISettings::themes[0].second));
+        qt_config->setValue(QStringLiteral("homeThemeApplied"), true);
 #ifdef ENABLE_DISCORD_RPC
         WriteBasicSetting(UISettings::values.enable_discord_presence);
 #endif
@@ -1422,6 +1436,15 @@ void QtConfig::SaveUIGameListValues() {
     WriteBasicSetting(UISettings::values.game_list_row_2);
     WriteBasicSetting(UISettings::values.game_list_hide_no_icon);
     WriteBasicSetting(UISettings::values.game_list_single_line_mode);
+    WriteBasicSetting(UISettings::values.game_list_use_home_view);
+    WriteBasicSetting(UISettings::values.home_accent_color);
+    WriteBasicSetting(UISettings::values.home_bg_top);
+    WriteBasicSetting(UISettings::values.home_bg_bottom);
+    WriteBasicSetting(UISettings::values.home_auto_covers);
+    WriteBasicSetting(UISettings::values.console_mode);
+    WriteBasicSetting(UISettings::values.home_sounds);
+    WriteBasicSetting(UISettings::values.home_pad_style);
+    WriteBasicSetting(UISettings::values.home_icon_style);
 
     WriteBasicSetting(UISettings::values.show_compat_column);
     WriteBasicSetting(UISettings::values.show_region_column);
