@@ -693,25 +693,17 @@ static void PaintCartridge(QPainter* p, const QRectF& slot, const QPixmap& icon,
             font.setPixelSize(std::max(4, static_cast<int>(px)));
             return font;
         };
-        const qreal big = header_h * 0.62;
-        const qreal small = header_h * 0.30;
-        const QFontMetricsF small_metrics(make(small));
-        const QFontMetricsF big_metrics(make(big));
-        const qreal nintendo_w = small_metrics.horizontalAdvance(QStringLiteral("NINTENDO"));
-        const qreal three_w = big_metrics.horizontalAdvance(QStringLiteral("3"));
-        const qreal ds_w = big_metrics.horizontalAdvance(QStringLiteral("DS"));
-        const qreal total = nintendo_w + big * 0.2 + three_w + ds_w;
-        qreal x = header.center().x() - total / 2;
-        const qreal base = header.center().y() + big * 0.34;
-        p->setFont(make(small));
-        p->setPen(QColor(0x1A, 0x1A, 0x1A));
-        p->drawText(QPointF(x, base - big * 0.02), QStringLiteral("NINTENDO"));
-        x += nintendo_w + big * 0.2;
-        p->setFont(make(big));
-        p->setPen(QColor(0xE6, 0x00, 0x12));
-        p->drawText(QPointF(x, base), QStringLiteral("3"));
-        p->setPen(QColor(0x1A, 0x1A, 0x1A));
-        p->drawText(QPointF(x + three_w, base), QStringLiteral("DS"));
+        static const QPixmap logo(QStringLiteral(":/home3ds/nintendo3ds_logo.png"));
+        if (!logo.isNull()) {
+            const QRectF box = header.adjusted(header.width() * 0.10, header.height() * 0.16,
+                                               -header.width() * 0.10, -header.height() * 0.16);
+            const qreal k = std::min(box.width() / logo.width(), box.height() / logo.height());
+            const QSizeF size(logo.width() * k, logo.height() * k);
+            p->drawPixmap(QRectF(QPointF(box.center().x() - size.width() / 2,
+                                         box.center().y() - size.height() / 2),
+                                 size),
+                          logo, QRectF(logo.rect()));
+        }
         if (!footer.isEmpty()) {
             p->setFont(make(footer_h * 0.34));
             p->setPen(QColor(0x3A, 0x40, 0x48));
