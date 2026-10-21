@@ -849,6 +849,10 @@ void QtConfig::ReadUIValues() {
         UISettings::values.theme =
             ReadSetting(Settings::QKeys::theme, QString::fromUtf8(UISettings::themes[0].second))
                 .toString();
+        // Migracao unica: adota o tema "Home 3DS" para quem ja tinha outro tema salvo.
+        if (!qt_config->value(QStringLiteral("homeThemeApplied"), false).toBool()) {
+            UISettings::values.theme = QString::fromUtf8(UISettings::themes[0].second);
+        }
 #ifdef ENABLE_DISCORD_RPC
         ReadBasicSetting(UISettings::values.enable_discord_presence);
 #endif
@@ -1387,6 +1391,7 @@ void QtConfig::SaveUIValues() {
     if (global) {
         WriteSetting(Settings::QKeys::theme, UISettings::values.theme,
                      QString::fromUtf8(UISettings::themes[0].second));
+        qt_config->setValue(QStringLiteral("homeThemeApplied"), true);
 #ifdef ENABLE_DISCORD_RPC
         WriteBasicSetting(UISettings::values.enable_discord_presence);
 #endif

@@ -71,6 +71,7 @@
 #include "citra_qt/dumping/dumping_dialog.h"
 #endif
 #include "citra_qt/game_list.h"
+#include "citra_qt/home/home_theme.h"
 #include "citra_qt/hotkeys.h"
 #include "citra_qt/loading_screen.h"
 #include "citra_qt/movie/movie_play_dialog.h"
@@ -3053,6 +3054,7 @@ void GMainWindow::OnConfigure() {
     connect(&configureDialog, &ConfigureDialog::LanguageChanged, this,
             &GMainWindow::OnLanguageChanged);
     auto old_theme = UISettings::values.theme;
+    const auto old_accent = UISettings::values.home_accent_color.GetValue();
     const int old_input_profile_index = Settings::values.current_input_profile_index;
     const auto old_input_profiles = Settings::values.input_profiles;
     const auto old_touch_from_button_maps = Settings::values.touch_from_button_maps;
@@ -3067,7 +3069,8 @@ void GMainWindow::OnConfigure() {
     if (result == QDialog::Accepted) {
         configureDialog.ApplyConfiguration();
         InitializeHotkeys();
-        if (UISettings::values.theme != old_theme) {
+        if (UISettings::values.theme != old_theme ||
+            UISettings::values.home_accent_color.GetValue() != old_accent) {
             UpdateUITheme();
         }
 #ifdef ENABLE_DISCORD_RPC
@@ -4310,8 +4313,28 @@ void GMainWindow::UpdateUITheme() {
         QFile f(theme_uri);
         if (f.open(QFile::ReadOnly | QFile::Text)) {
             QTextStream ts(&f);
-            qApp->setStyleSheet(ts.readAll());
-            setStyleSheet(ts.readAll());
+            QString qss = ts.readAll();
+            if (current_theme == QStringLiteral("home3ds")) {
+                // O tema Home 3DS deriva todas as cores da cor de destaque escolhida.
+                const Home::Theme t = Home::Theme::FromAccent(
+                    QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+                const std::pair<const char*, QColor> tokens[] = {
+                    {"@accent_dark@", t.accent.darker(115)},
+                    {"@accent@", t.accent},
+                    {"@tint_hover@", t.bg_top.darker(106)},
+                    {"@tint@", t.bg_top},
+                    {"@border@", t.bg_top.darker(115)},
+                    {"@surface@", QColor(0xFB, 0xFD, 0xFF)},
+                    {"@bg@", t.bg_mid},
+                    {"@text@", t.text},
+                    {"@muted@", t.text_muted},
+                };
+                for (const auto& [name, color] : tokens) {
+                    qss.replace(QLatin1String(name), color.name());
+                }
+            }
+            qApp->setStyleSheet(qss);
+            setStyleSheet(qss);
         } else {
             LOG_ERROR(Frontend, "Unable to set style, stylesheet file not found");
         }
