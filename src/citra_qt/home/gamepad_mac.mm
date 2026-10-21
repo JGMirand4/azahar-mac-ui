@@ -43,6 +43,8 @@ PadState ReadPadState() {
             state.rt = state.rt || [[pad rightTrigger] isPressed];
             if (@available(macOS 10.15, *)) {
                 state.start = state.start || [[pad buttonMenu] isPressed];
+                state.select = state.select || [[pad buttonOptions] isPressed];
+                state.l3 = state.l3 || [[pad leftThumbstickButton] isPressed];
             }
         }
     }

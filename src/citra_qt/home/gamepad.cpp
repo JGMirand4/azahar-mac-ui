@@ -29,7 +29,7 @@ void GamepadNav::Poll() {
 
     const bool now[ButtonCount] = {state.up, state.down, state.left, state.right, state.a, state.b,
                                    state.x,  state.y,    state.l,    state.r,     state.start, state.lt,
-                                   state.rt};
+                                   state.rt,      state.select, state.l3};
     const qint64 time = QDateTime::currentMSecsSinceEpoch();
     for (int i = 0; i < ButtonCount; ++i) {
         const bool direction = i <= Right;

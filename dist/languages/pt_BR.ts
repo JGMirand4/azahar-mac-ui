@@ -8017,6 +8017,26 @@ Adicione a pasta onde estão seus jogos.</translation>
         <source>No games match your search.</source>
         <translation>Nenhum jogo encontrado para a busca.</translation>
     </message>
+    <message>
+        <source>Region</source>
+        <translation>Região</translation>
+    </message>
+    <message>
+        <source>Compatibility</source>
+        <translation>Compatibilidade</translation>
+    </message>
+    <message>
+        <source>Select</source>
+        <translation>Select</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>Criar</translation>
+    </message>
+    <message>
+        <source>Sort</source>
+        <translation>Ordenar</translation>
+    </message>
 </context>
 <context>
     <name>ConfigureUi</name>

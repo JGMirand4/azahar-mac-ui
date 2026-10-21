@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <QLocale>
+#include <QColor>
 #include <QPixmap>
 #include <QString>
 #include <QWidget>
@@ -17,11 +18,13 @@ class QListView;
 class QPushButton;
 class QStandardItemModel;
 class QTimer;
+class QVariantAnimation;
 class QVBoxLayout;
 
 namespace Home {
 
 class CarouselWidget;
+class ListHeader;
 class GamepadNav;
 class Curtain;
 class HintBar;
@@ -139,6 +142,7 @@ protected:
 private:
     friend class CardDelegate;
     friend class CarouselWidget;
+    friend class ListHeader;
     friend class Curtain;
 
     void BuildUi();
@@ -215,6 +219,19 @@ private:
     QPushButton* play_button = nullptr;
     QPushButton* favorite_button = nullptr;
     QPushButton* more_button = nullptr;
+    // Acoes embaixo do carrossel (o destaque do topo some nesse modo).
+    QWidget* carousel_actions = nullptr;
+    QPushButton* c_play = nullptr;
+    QPushButton* c_favorite = nullptr;
+    QPushButton* c_more = nullptr;
+    QPushButton* surprise_button = nullptr;
+    ListHeader* list_header = nullptr;
+    QWidget* grid_panel_widget = nullptr;
+    QVariantAnimation* tint_anim = nullptr;
+    QColor tint_now;
+    void UpdateTint();
+    void ApplyTint();
+    void CycleSort();
 
     QLabel* grid_title = nullptr;
     QWidget* empty_state = nullptr;
