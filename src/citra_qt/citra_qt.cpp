@@ -3056,6 +3056,8 @@ void GMainWindow::OnConfigure() {
             &GMainWindow::OnLanguageChanged);
     auto old_theme = UISettings::values.theme;
     const auto old_accent = UISettings::values.home_accent_color.GetValue();
+    const auto old_bg_top = UISettings::values.home_bg_top.GetValue();
+    const auto old_bg_bottom = UISettings::values.home_bg_bottom.GetValue();
     const int old_input_profile_index = Settings::values.current_input_profile_index;
     const auto old_input_profiles = Settings::values.input_profiles;
     const auto old_touch_from_button_maps = Settings::values.touch_from_button_maps;
@@ -3071,7 +3073,9 @@ void GMainWindow::OnConfigure() {
         configureDialog.ApplyConfiguration();
         InitializeHotkeys();
         if (UISettings::values.theme != old_theme ||
-            UISettings::values.home_accent_color.GetValue() != old_accent) {
+            UISettings::values.home_accent_color.GetValue() != old_accent ||
+            UISettings::values.home_bg_top.GetValue() != old_bg_top ||
+            UISettings::values.home_bg_bottom.GetValue() != old_bg_bottom) {
             UpdateUITheme();
         }
 #ifdef ENABLE_DISCORD_RPC
@@ -4317,8 +4321,13 @@ void GMainWindow::UpdateUITheme() {
             QString qss = ts.readAll();
             if (current_theme == QStringLiteral("home3ds")) {
                 // O tema Home 3DS deriva todas as cores da cor de destaque escolhida.
-                const Home::Theme t = Home::Theme::FromAccent(
-                    QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+                const auto to_color = [](const std::string& value) {
+                    return value.empty() ? QColor() : QColor(QString::fromStdString(value));
+                };
+                const Home::Theme t = Home::Theme::FromColors(
+                    QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())),
+                    to_color(UISettings::values.home_bg_top.GetValue()),
+                    to_color(UISettings::values.home_bg_bottom.GetValue()));
                 const std::pair<const char*, QColor> tokens[] = {
                     {"@accent_dark@", t.accent.darker(115)},
                     {"@accent@", t.accent},

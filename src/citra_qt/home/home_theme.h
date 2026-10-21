@@ -45,6 +45,43 @@ struct Theme {
         t.shadow = QColor::fromHslF(h, 0.50f, 0.30f);
         return t;
     }
+
+    /// Como FromAccent, mas com as cores do degrade de fundo escolhidas pelo usuario.
+    /// Cores invalidas mantem o valor automatico derivado da cor de destaque.
+    static Theme FromColors(const QColor& accent, const QColor& top, const QColor& bottom) {
+        Theme t = FromAccent(accent);
+        if (top.isValid()) {
+            t.bg_top = top;
+            t.blob_a = Tint(top, 0.80f);
+        }
+        if (bottom.isValid()) {
+            t.bg_bottom = bottom;
+            t.blob_b = Tint(bottom, 0.80f);
+        }
+        if (top.isValid() || bottom.isValid()) {
+            t.bg_mid = Mix(t.bg_top, t.bg_bottom, 0.5f);
+        }
+        return t;
+    }
+
+    static QColor Mix(const QColor& a, const QColor& b, float amount) {
+        return QColor::fromRgbF(a.redF() + (b.redF() - a.redF()) * amount,
+                                a.greenF() + (b.greenF() - a.greenF()) * amount,
+                                a.blueF() + (b.blueF() - a.blueF()) * amount);
+    }
+
+    /// Versao mais viva e clara da cor, usada nas manchas de luz do fundo.
+    static QColor Tint(const QColor& c, float lightness) {
+        float h = 0.0f;
+        float s = 0.0f;
+        float l = 0.0f;
+        float a = 0.0f;
+        c.getHslF(&h, &s, &l, &a);
+        if (h < 0.0f) {
+            return QColor::fromHslF(0.0f, 0.0f, std::max(l, lightness));
+        }
+        return QColor::fromHslF(h, std::min(1.0f, std::max(s, 0.6f)), std::max(l, lightness));
+    }
 };
 
 } // namespace Home

@@ -6,6 +6,8 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QColor>
+#include <QDateTime>
+#include <QSettings>
 #include <QDir>
 #include <QImage>
 #include <QFileDialog>
@@ -162,9 +164,9 @@ GameListSearchField::GameListSearchField(GameList* parent) : QWidget{parent} {
     button_filter_close->setCursor(Qt::ArrowCursor);
     button_filter_close->setStyleSheet(
         QStringLiteral("QToolButton{ border: none; padding: 0px; color: "
-                       "#000000; font-weight: bold; background: #F0F0F0; }"
+                       "#000000; font-weight: bold; background: #F0F0F0; border-radius: 8px; }"
                        "QToolButton:hover{ border: none; padding: 0px; color: "
-                       "#EEEEEE; font-weight: bold; background: #E81123}"));
+                       "#EEEEEE; font-weight: bold; background: #E81123; border-radius: 8px; }"));
     connect(button_filter_close, &QToolButton::clicked, parent, &GameList::OnFilterCloseClicked);
     layout_filter->setSpacing(10);
     layout_filter->addWidget(label_filter);
@@ -350,6 +352,26 @@ public:
     }
 };
 
+static QColor ColorFromSetting(const std::string& value) {
+    return value.empty() ? QColor() : QColor(QString::fromStdString(value));
+}
+
+// Chave estavel de um jogo: ID do programa em hexadecimal ou, sem ele, hash do caminho.
+static QString GameKey(u64 program_id, const QString& game_path) {
+    if (program_id != 0) {
+        return QStringLiteral("%1").arg(static_cast<qulonglong>(program_id), 16, 16,
+                                        QLatin1Char{'0'});
+    }
+    return QString::fromLatin1(
+        QCryptographicHash::hash(game_path.toUtf8(), QCryptographicHash::Md5).toHex());
+}
+
+// Estado so da tela inicial (ultimo jogado). Fica ao lado das capas, na pasta do usuario.
+static QString HomeStatePath() {
+    return QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+           QStringLiteral("home_state.ini");
+}
+
 GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* parent)
     : QWidget{parent}, play_time_manager{play_time_manager_} {
     watcher = new QFileSystemWatcher(this);
@@ -402,7 +424,10 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     home_view->SetLocale(UISettings::values.language.isEmpty()
                              ? QLocale::system()
                              : QLocale(UISettings::values.language));
-    home_view->SetAccentColor(QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    home_view->SetBackgroundColors(ColorFromSetting(UISettings::values.home_bg_top.GetValue()),
+                                   ColorFromSetting(UISettings::values.home_bg_bottom.GetValue()));
+    home_view->SetAccentColor(
+        QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     connect(home_view, &Home::HomeView::GameActivated, this, &GameList::OnHomeGameActivated);
     connect(home_view, &Home::HomeView::GameContextMenuRequested, this,
             &GameList::PopupHomeContextMenu);
@@ -421,6 +446,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     layout->addWidget(search_field);
     setLayout(layout);
 
+    connect(this, &GameList::GameChosen, this, &GameList::RecordLastPlayed);
     SetHomeMode(UISettings::values.game_list_use_home_view.GetValue());
 }
 
@@ -449,12 +475,34 @@ void GameList::ApplyHomeSettings() {
     home_view->SetLocale(UISettings::values.language.isEmpty()
                              ? QLocale::system()
                              : QLocale(UISettings::values.language));
+    home_view->SetBackgroundColors(ColorFromSetting(UISettings::values.home_bg_top.GetValue()),
+                                   ColorFromSetting(UISettings::values.home_bg_bottom.GetValue()));
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     const bool use_home = UISettings::values.game_list_use_home_view.GetValue();
     if (use_home != home_mode) {
         SetHomeMode(use_home);
     }
+}
+
+void GameList::RecordLastPlayed(const QString& path) {
+    u64 program_id = 0;
+    const auto* root = item_model->invisibleRootItem();
+    for (int i = 0; i < root->rowCount() && program_id == 0; ++i) {
+        const QStandardItem* dir = root->child(i, 0);
+        for (int j = 0; dir != nullptr && j < dir->rowCount(); ++j) {
+            const QStandardItem* item = dir->child(j, COLUMN_NAME);
+            if (item != nullptr && item->data(GameListItemPath::FullPathRole).toString() == path) {
+                program_id = item->data(GameListItemPath::ProgramIdRole).toULongLong();
+                break;
+            }
+        }
+    }
+    QSettings state(HomeStatePath(), QSettings::IniFormat);
+    state.setValue(QStringLiteral("last_played/") + GameKey(program_id, path),
+                   QDateTime::currentSecsSinceEpoch());
+    state.sync();
+    RebuildHomeView();
 }
 
 void GameList::OnHomeGameActivated(const QString& path) {
@@ -473,12 +521,7 @@ void GameList::OnHomeGameActivated(const QString& path) {
 static QString CoverFilePath(u64 program_id, const QString& game_path) {
     const QString dir = QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
                         QStringLiteral("covers");
-    const QString name =
-        program_id != 0
-            ? QStringLiteral("%1").arg(static_cast<qulonglong>(program_id), 16, 16, QLatin1Char{'0'})
-            : QString::fromLatin1(
-                  QCryptographicHash::hash(game_path.toUtf8(), QCryptographicHash::Md5).toHex());
-    return dir + QLatin1Char{'/'} + name + QStringLiteral(".png");
+    return dir + QLatin1Char{'/'} + GameKey(program_id, game_path) + QStringLiteral(".png");
 }
 
 void GameList::PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& global_pos) {
@@ -524,6 +567,7 @@ void GameList::PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& gl
 
 void GameList::RebuildHomeView() {
     std::vector<Home::GameInfo> games;
+    const QSettings last_played_state(HomeStatePath(), QSettings::IniFormat);
     const auto* root = item_model->invisibleRootItem();
     for (int i = 0; i < root->rowCount(); ++i) {
         const QStandardItem* dir = root->child(i, 0);
@@ -562,6 +606,10 @@ void GameList::RebuildHomeView() {
             info.media_type = name->data(GameListItemPath::MediaTypeRole).toUInt();
             info.can_insert = name->data(GameListItemPath::CanInsertRole).toUInt() != 0;
             info.favorite = UISettings::values.favorited_ids.contains(info.program_id);
+            info.last_played =
+                last_played_state
+                    .value(QStringLiteral("last_played/") + GameKey(info.program_id, info.path), 0)
+                    .toLongLong();
 
             if (const auto* it = dir->child(j, COLUMN_REGION)) {
                 info.region = it->text().replace(QLatin1Char{'\n'}, QStringLiteral(", "));

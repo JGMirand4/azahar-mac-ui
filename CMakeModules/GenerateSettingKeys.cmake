@@ -246,6 +246,8 @@ if (ENABLE_QT)
         "singleLineMode"
         "useHomeScreen"
         "homeAccentColor"
+        "homeBgTop"
+        "homeBgBottom"
         "show_compat_column"
         "show_region_column"
         "show_type_column"

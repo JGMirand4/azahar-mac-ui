@@ -44,9 +44,11 @@ struct GameInfo {
     bool can_insert = false;
     bool favorite = false;
     bool custom_cover = false; // capa escolhida pelo usuario (preenche o banner)
+    qint64 last_played = 0;    // segundos desde 1970; 0 = nunca jogado pelo Azahar
 };
 
 enum class SortMode {
+    Recent,
     Name,
     PlayTime,
     Size,
@@ -79,6 +81,8 @@ public:
 
     /// Troca a cor de destaque e deriva o restante da paleta.
     void SetAccentColor(const QColor& accent);
+    /// Cores do degrade de fundo; cor invalida = automatica a partir do destaque.
+    void SetBackgroundColors(const QColor& top, const QColor& bottom);
     const Theme& GetTheme() const {
         return theme;
     }
@@ -116,9 +120,12 @@ private:
     QString SortModeText() const;
 
     Theme theme;
+    QColor accent_color{0x0F, 0x6F, 0xD0};
+    QColor bg_top_color;
+    QColor bg_bottom_color;
     QLocale ui_locale = QLocale::system();
     std::vector<GameInfo> games;
-    SortMode sort_mode = SortMode::Name;
+    SortMode sort_mode = SortMode::Recent;
     bool compact = false;
     bool library_mode = false;
     QString filter_text;
@@ -138,6 +145,7 @@ private:
 
     QWidget* hero_panel = nullptr;
     HeroArt* hero_art = nullptr;
+    QLabel* hero_eyebrow = nullptr;
     QLabel* hero_compat = nullptr;
     QLabel* hero_region = nullptr;
     QLabel* hero_size = nullptr;
@@ -150,6 +158,10 @@ private:
 
     QLabel* grid_title = nullptr;
     QLabel* grid_count = nullptr;
+    QWidget* empty_state = nullptr;
+    QLabel* empty_label = nullptr;
+    QPushButton* empty_add_button = nullptr;
+    void UpdateEmptyState(int visible);
     QPushButton* sort_button = nullptr;
     QPushButton* settings_button = nullptr;
     QPushButton* dock_home = nullptr;

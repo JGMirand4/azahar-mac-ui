@@ -116,6 +116,9 @@ struct Values {
     // Tela inicial estilo HOME do 3DS (grade de cards) em vez da lista classica.
     Settings::Setting<bool> game_list_use_home_view{true, Settings::Keys::useHomeScreen};
     Settings::Setting<std::string> home_accent_color{"#0F6FD0", Settings::Keys::homeAccentColor};
+    // Cores do degrade de fundo da tela inicial; vazio = automatico (derivado do destaque).
+    Settings::Setting<std::string> home_bg_top{"", Settings::Keys::homeBgTop};
+    Settings::Setting<std::string> home_bg_bottom{"", Settings::Keys::homeBgBottom};
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

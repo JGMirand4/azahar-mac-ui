@@ -7939,6 +7939,32 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
             <numerusform>%n jogos</numerusform>
         </translation>
     </message>
+    <message>
+        <source>Recently played</source>
+        <translation>Jogados recentemente</translation>
+    </message>
+    <message>
+        <source>LAST PLAYED</source>
+        <translation>ÚLTIMO JOGADO</translation>
+    </message>
+    <message>
+        <source>SELECTED GAME</source>
+        <translation>JOGO SELECIONADO</translation>
+    </message>
+    <message>
+        <source>Add games folder</source>
+        <translation>Adicionar pasta de jogos</translation>
+    </message>
+    <message>
+        <source>No games yet.
+Add the folder where your games are.</source>
+        <translation>Nenhum jogo ainda.
+Adicione a pasta onde estão seus jogos.</translation>
+    </message>
+    <message>
+        <source>No games match your search.</source>
+        <translation>Nenhum jogo encontrado para a busca.</translation>
+    </message>
 </context>
 <context>
     <name>ConfigureUi</name>
@@ -7953,6 +7979,30 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
     <message>
         <source>Accent color</source>
         <translation>Cor de destaque</translation>
+    </message>
+    <message>
+        <source>Home screen background (start)</source>
+        <translation>Fundo da tela inicial (início)</translation>
+    </message>
+    <message>
+        <source>Home screen background (end)</source>
+        <translation>Fundo da tela inicial (fim)</translation>
+    </message>
+    <message>
+        <source>Automatic background colors</source>
+        <translation>Cores de fundo automáticas</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Background color (start)</source>
+        <translation>Cor do fundo (início)</translation>
+    </message>
+    <message>
+        <source>Background color (end)</source>
+        <translation>Cor do fundo (fim)</translation>
     </message>
 </context>
 <context>

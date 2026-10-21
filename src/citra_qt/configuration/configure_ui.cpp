@@ -26,6 +26,41 @@ ConfigureUi::ConfigureUi(QWidget* parent)
             SetAccentButtonColor(color);
         }
     });
+    connect(ui->home_bg_top_button, &QPushButton::clicked, this, [this] {
+        const QColor color = QColorDialog::getColor(
+            home_bg_top.isValid() ? home_bg_top : QColor(0xD9, 0xE9, 0xFA), this,
+            tr("Background color (start)"));
+        if (color.isValid()) {
+            SetBackgroundButtonColor(ui->home_bg_top_button, home_bg_top, color);
+        }
+    });
+    connect(ui->home_bg_bottom_button, &QPushButton::clicked, this, [this] {
+        const QColor color = QColorDialog::getColor(
+            home_bg_bottom.isValid() ? home_bg_bottom : QColor(0xF3, 0xEE, 0xE9), this,
+            tr("Background color (end)"));
+        if (color.isValid()) {
+            SetBackgroundButtonColor(ui->home_bg_bottom_button, home_bg_bottom, color);
+        }
+    });
+    connect(ui->home_bg_reset_button, &QPushButton::clicked, this, [this] {
+        SetBackgroundButtonColor(ui->home_bg_top_button, home_bg_top, QColor());
+        SetBackgroundButtonColor(ui->home_bg_bottom_button, home_bg_bottom, QColor());
+    });
+}
+
+void ConfigureUi::SetBackgroundButtonColor(QPushButton* button, QColor& target,
+                                           const QColor& color) {
+    target = color;
+    if (color.isValid()) {
+        button->setStyleSheet(
+            QStringLiteral("QPushButton{ background: %1; border: 1px solid #808080; "
+                           "border-radius: 4px; }")
+                .arg(color.name()));
+        button->setText(QString());
+    } else {
+        button->setStyleSheet(QString());
+        button->setText(tr("Auto"));
+    }
 }
 
 void ConfigureUi::SetAccentButtonColor(const QColor& color) {
@@ -85,6 +120,13 @@ void ConfigureUi::SetConfiguration() {
     ui->toggle_home_view->setChecked(UISettings::values.game_list_use_home_view.GetValue());
     SetAccentButtonColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    const auto bg_color = [](const std::string& value) {
+        return value.empty() ? QColor() : QColor(QString::fromStdString(value));
+    };
+    SetBackgroundButtonColor(ui->home_bg_top_button, home_bg_top,
+                             bg_color(UISettings::values.home_bg_top.GetValue()));
+    SetBackgroundButtonColor(ui->home_bg_bottom_button, home_bg_bottom,
+                             bg_color(UISettings::values.home_bg_bottom.GetValue()));
     ui->show_advanced_frametime_info->setChecked(
         UISettings::values.show_advanced_frametime_info.GetValue());
 }
@@ -102,6 +144,9 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.game_list_single_line_mode = ui->toggle_single_line_mode->isChecked();
     UISettings::values.game_list_use_home_view = ui->toggle_home_view->isChecked();
     UISettings::values.home_accent_color = home_accent.name().toStdString();
+    UISettings::values.home_bg_top = home_bg_top.isValid() ? home_bg_top.name().toStdString() : "";
+    UISettings::values.home_bg_bottom =
+        home_bg_bottom.isValid() ? home_bg_bottom.name().toStdString() : "";
     UISettings::values.show_advanced_frametime_info = ui->show_advanced_frametime_info->isChecked();
 }
 

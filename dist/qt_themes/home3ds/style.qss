@@ -330,3 +330,62 @@ QTableView {
 QMessageBox {
     background-color: @bg@;
 }
+
+QScrollArea, QAbstractScrollArea {
+    border-radius: 8px;
+}
+
+QPlainTextEdit, QTextEdit, QTextBrowser {
+    border-radius: 10px;
+}
+
+QHeaderView {
+    border-radius: 8px;
+}
+
+QHeaderView::section:first {
+    border-top-left-radius: 8px;
+}
+
+QHeaderView::section:last {
+    border-top-right-radius: 8px;
+    border-right: none;
+}
+
+QSpinBox, QDoubleSpinBox, QComboBox, QLineEdit {
+    border-radius: 10px;
+}
+
+QPushButton, QToolButton {
+    border-radius: 10px;
+}
+
+QComboBox QAbstractItemView {
+    border-radius: 10px;
+    padding: 4px;
+}
+
+QDialog, QMessageBox {
+    border-radius: 14px;
+}
+
+QStatusBar QLabel, QStatusBar QPushButton {
+    border-radius: 8px;
+}
+
+QTabBar::tab {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+QProgressBar, QProgressBar::chunk {
+    border-radius: 7px;
+}
+
+QDockWidget::title {
+    border-radius: 8px;
+}
+
+QLineEdit[clearButtonEnabled="true"] {
+    padding-right: 4px;
+}

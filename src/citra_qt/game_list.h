@@ -138,6 +138,7 @@ private:
     void DonePopulating(const QStringList& watch_list);
 
     void RebuildHomeView();
+    void RecordLastPlayed(const QString& path);
     void OnHomeGameActivated(const QString& path);
     void PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& global_pos);
 

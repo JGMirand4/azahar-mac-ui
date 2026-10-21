@@ -44,6 +44,7 @@ constexpr int GameRowRole = Qt::UserRole + 301;
 constexpr int SortNameRole = Qt::UserRole + 302;
 constexpr int SortTimeRole = Qt::UserRole + 303;
 constexpr int SortSizeRole = Qt::UserRole + 304;
+constexpr int SortRecentRole = Qt::UserRole + 305;
 
 QFont RoundedFont(int pixel_size, QFont::Weight weight) {
     QFont font;
@@ -388,6 +389,13 @@ public:
     void SetGame(const QPixmap& icon_, const QString& title, bool custom_cover_ = false) {
         icon = icon_;
         custom_cover = custom_cover_;
+        // Fundo: a propria arte do jogo bem borrada (reduz e amplia suavemente).
+        backdrop = QPixmap();
+        if (!icon.isNull()) {
+            const QImage small = icon.toImage().scaled(
+                QSize(18, 18), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            backdrop = QPixmap::fromImage(small);
+        }
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
         base = AverageColor(icon, theme->accent_light);
         animation->stop();
@@ -419,33 +427,21 @@ protected:
             return;
         }
 
-        float hue = base.hslHueF();
-        if (hue < 0.0f) {
-            hue = theme->accent.hslHueF();
+        if (!backdrop.isNull()) {
+            p.drawPixmap(r, backdrop, AspectFillSource(backdrop, r));
+        } else {
+            QLinearGradient plain(r.topLeft(), r.bottomRight());
+            plain.setColorAt(0.0, theme->accent_light);
+            plain.setColorAt(1.0, theme->accent);
+            p.fillRect(r, plain);
         }
-        const float sat = std::clamp(static_cast<float>(base.hslSaturationF()), 0.25f, 0.8f);
-        const QColor sky_top = QColor::fromHslF(hue, sat, 0.72f);
-        const QColor sky_bottom = QColor::fromHslF(hue, sat * 0.6f, 0.90f);
-        const QColor hill_a = QColor::fromHslF(hue, sat * 0.6f, 0.56f);
-        const QColor hill_b = QColor::fromHslF(hue, sat * 0.6f, 0.46f);
-
-        QLinearGradient sky(r.topLeft(), r.bottomLeft());
-        sky.setColorAt(0.0, sky_top);
-        sky.setColorAt(1.0, sky_bottom);
-        p.fillRect(r, sky);
-
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(255, 247, 200, 235));
-        p.drawEllipse(QPointF(r.left() + r.width() * 0.76, r.top() + r.height() * 0.24),
-                      r.height() * 0.085, r.height() * 0.085);
+        // Veu claro para o icone destacar e o texto ao lado continuar legivel.
+        QLinearGradient veil(r.topLeft(), r.bottomRight());
+        veil.setColorAt(0.0, QColor(255, 255, 255, 120));
+        veil.setColorAt(1.0, QColor(255, 255, 255, 30));
+        p.fillRect(r, veil);
 
         p.setOpacity(0.35 + 0.65 * fade);
-        p.setBrush(hill_a);
-        p.drawEllipse(QPointF(r.left() + r.width() * 0.2, r.bottom() + r.height() * 0.12),
-                      r.width() * 0.68, r.height() * 0.62);
-        p.setBrush(hill_b);
-        p.drawEllipse(QPointF(r.left() + r.width() * 0.92, r.bottom() + r.height() * 0.2),
-                      r.width() * 0.52, r.height() * 0.58);
         p.setOpacity(1.0);
 
         QLinearGradient gloss(r.topLeft(), QPointF(r.left(), r.top() + r.height() * 0.4));
@@ -489,6 +485,7 @@ protected:
 private:
     const Theme* theme;
     QPixmap icon;
+    QPixmap backdrop;
     bool custom_cover = false;
     QString initial;
     QColor base;
@@ -739,6 +736,11 @@ void HomeView::BuildUi() {
     info_layout->setContentsMargins(40, 22, 16, 22);
     info_layout->setSpacing(10);
 
+    hero_eyebrow = new QLabel(info);
+    hero_eyebrow->setObjectName(QStringLiteral("heroEyebrow"));
+    hero_eyebrow->setFont(BodyFont(12, QFont::Bold));
+    info_layout->addWidget(hero_eyebrow);
+
     auto* chips = new QHBoxLayout;
     chips->setSpacing(8);
     hero_compat = new QLabel(info);
@@ -865,6 +867,7 @@ void HomeView::BuildUi() {
         QAction* action = sort_menu->addAction(text);
         connect(action, &QAction::triggered, this, [this, mode] { SetSortMode(mode); });
     };
+    add_sort(tr("Recently played"), SortMode::Recent);
     add_sort(tr("Name"), SortMode::Name);
     add_sort(tr("Play time"), SortMode::PlayTime);
     add_sort(tr("Size"), SortMode::Size);
@@ -922,6 +925,25 @@ void HomeView::BuildUi() {
     grid->setItemDelegate(new CardDelegate(this, grid));
     grid->viewport()->setAutoFillBackground(false);
     grid_layout->addWidget(grid, 1);
+
+    empty_state = new QWidget(grid_panel);
+    auto* empty_layout = new QVBoxLayout(empty_state);
+    empty_layout->setAlignment(Qt::AlignCenter);
+    empty_layout->setSpacing(14);
+    empty_label = new QLabel(empty_state);
+    empty_label->setObjectName(QStringLiteral("emptyLabel"));
+    empty_label->setFont(RoundedFont(20, QFont::Bold));
+    empty_label->setAlignment(Qt::AlignCenter);
+    empty_label->setWordWrap(true);
+    empty_layout->addWidget(empty_label);
+    empty_add_button = new QPushButton(tr("Add games folder"), empty_state);
+    empty_add_button->setObjectName(QStringLiteral("play"));
+    empty_add_button->setCursor(Qt::PointingHandCursor);
+    empty_add_button->setFont(RoundedFont(17, QFont::Bold));
+    connect(empty_add_button, &QPushButton::clicked, this, [this] { emit AddFolderRequested(); });
+    empty_layout->addWidget(empty_add_button, 0, Qt::AlignHCenter);
+    grid_layout->addWidget(empty_state, 1);
+    empty_state->hide();
 
     connect(grid->selectionModel(), &QItemSelectionModel::currentChanged, this,
             [this](const QModelIndex&, const QModelIndex&) { UpdateHero(); });
@@ -1004,6 +1026,7 @@ void HomeView::RebuildStyleSheet() {
 #homeRoot QWidget { background: transparent; }
 #homeRoot QLabel { background: transparent; color: @text@; }
 #homeRoot QLabel#appTag { color: @muted@; }
+#homeRoot QLabel#heroEyebrow { color: @accent@; }
 #homeRoot QLabel#clockDate { color: @muted@; }
 #homeRoot QLabel#heroDesc { color: @body@; }
 #homeRoot QLabel#heroHours { color: @muted@; }
@@ -1095,7 +1118,8 @@ void HomeView::RebuildStyleSheet() {
 }
 
 void HomeView::SetAccentColor(const QColor& accent) {
-    theme = Theme::FromAccent(accent);
+    accent_color = accent;
+    theme = Theme::FromColors(accent_color, bg_top_color, bg_bottom_color);
     ApplyLightPalette();
     RebuildStyleSheet();
     update();
@@ -1103,6 +1127,24 @@ void HomeView::SetAccentColor(const QColor& accent) {
         grid->viewport()->update();
     }
     UpdateHero();
+}
+
+void HomeView::UpdateEmptyState(int visible) {
+    const bool empty = visible == 0;
+    grid->setVisible(!empty);
+    empty_state->setVisible(empty);
+    if (empty) {
+        const bool no_games = games.empty();
+        empty_label->setText(no_games ? tr("No games yet.\nAdd the folder where your games are.")
+                                      : tr("No games match your search."));
+        empty_add_button->setVisible(no_games);
+    }
+}
+
+void HomeView::SetBackgroundColors(const QColor& top, const QColor& bottom) {
+    bg_top_color = top;
+    bg_bottom_color = bottom;
+    SetAccentColor(accent_color);
 }
 
 void HomeView::SetGames(std::vector<GameInfo> new_games) {
@@ -1121,6 +1163,7 @@ void HomeView::RefreshModel() {
         item->setData(game.title.toLower(), SortNameRole);
         item->setData(game.play_time_seconds, SortTimeRole);
         item->setData(game.size_bytes, SortSizeRole);
+        item->setData(game.last_played, SortRecentRole);
         item->setToolTip(game.title);
         item->setEditable(false);
         model->appendRow(item);
@@ -1134,7 +1177,7 @@ void HomeView::RefreshModel() {
             continue;
         }
         if (select_row < 0) {
-            select_row = row;
+            select_row = row; // com a ordem "recentes", a primeira linha e o ultimo jogado
         }
         const int game_index = model->index(row, 0).data(GameRowRole).toInt();
         if (current_id != 0 && games[game_index].program_id == current_id) {
@@ -1150,6 +1193,11 @@ void HomeView::RefreshModel() {
 
 void HomeView::ApplySort() {
     switch (sort_mode) {
+    case SortMode::Recent:
+        // Mais recentes primeiro; quem nunca foi jogado fica em ordem alfabetica no fim.
+        model->setSortRole(SortRecentRole);
+        model->sort(0, Qt::DescendingOrder);
+        break;
     case SortMode::Name:
         model->setSortRole(SortNameRole);
         model->sort(0, Qt::AscendingOrder);
@@ -1169,6 +1217,8 @@ void HomeView::ApplySort() {
 
 QString HomeView::SortModeText() const {
     switch (sort_mode) {
+    case SortMode::Recent:
+        return tr("Recently played");
     case SortMode::Name:
         return tr("Name");
     case SortMode::PlayTime:
@@ -1206,6 +1256,7 @@ int HomeView::SetFilter(const QString& text) {
         }
     }
     grid_count->setText(tr("%n game(s)", nullptr, visible));
+    UpdateEmptyState(visible);
 
     // Se o jogo selecionado sumiu do filtro, seleciona o primeiro visivel.
     const QModelIndex current = grid->currentIndex();
@@ -1297,6 +1348,7 @@ void HomeView::UpdateHero() {
 
     if (!has_game) {
         hero_title->setText(tr("No games found"));
+        hero_eyebrow->clear();
         hero_desc->clear();
         hero_hours->clear();
         hero_art->SetGame(QPixmap(), QString());
@@ -1306,6 +1358,14 @@ void HomeView::UpdateHero() {
 
     hero_title->setText(game->title.isEmpty() ? tr("Unknown title") : game->title);
     hero_desc->setText(game->subtitle);
+
+    qint64 latest = 0;
+    for (const GameInfo& g : games) {
+        latest = std::max(latest, g.last_played);
+    }
+    hero_eyebrow->setText(latest > 0 && game->last_played == latest ? tr("LAST PLAYED")
+                                                                       : tr("SELECTED GAME"));
+    hero_eyebrow->setVisible(!compact);
 
     hero_compat->setVisible(!compact && !game->compat_text.isEmpty());
     hero_compat->setText(QStringLiteral("<span style='color:%1;'>&#9679;</span>&nbsp;%2")
