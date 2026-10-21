@@ -283,6 +283,14 @@ QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool fille
 /// Emblema da marca: quadrado arredondado com degrade da cor de destaque e uma flor de
 /// laranjeira (azahar) branca no centro.
 QPixmap MakeBrandBadge(const Theme& theme, int size, qreal dpr) {
+    // Preferimos o icone oficial do app; a flor desenhada abaixo e o plano B.
+    static const QPixmap app_icon(QStringLiteral(":/icons/default/256x256/azahar.png"));
+    if (!app_icon.isNull()) {
+        QPixmap scaled = app_icon.scaled(QSize(size, size) * dpr, Qt::KeepAspectRatio,
+                                         Qt::SmoothTransformation);
+        scaled.setDevicePixelRatio(dpr);
+        return scaled;
+    }
     QPixmap pm(QSize(size, size) * dpr);
     pm.setDevicePixelRatio(dpr);
     pm.fill(Qt::transparent);
