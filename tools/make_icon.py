@@ -52,8 +52,8 @@ def build_svg(primary):
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#F6F9FD"/>
-      <stop offset="1" stop-color="{tile_lo}"/>
+      <stop offset="0" stop-color="#1C1C20"/>
+      <stop offset="1" stop-color="#000000"/>
     </linearGradient>
     <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="{light}"/>

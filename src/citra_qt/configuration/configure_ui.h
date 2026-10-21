@@ -37,6 +37,5 @@ private:
 
     QColor home_accent;
     QColor home_bg_top;    // invalida = automatica
-    QColor home_bg_bottom; // invalida = automatica
     std::unique_ptr<Ui::ConfigureUi> ui;
 };

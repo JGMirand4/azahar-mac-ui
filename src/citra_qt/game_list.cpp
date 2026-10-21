@@ -424,8 +424,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     home_view->SetLocale(UISettings::values.language.isEmpty()
                              ? QLocale::system()
                              : QLocale(UISettings::values.language));
-    home_view->SetBackgroundColors(ColorFromSetting(UISettings::values.home_bg_top.GetValue()),
-                                   ColorFromSetting(UISettings::values.home_bg_bottom.GetValue()));
+    home_view->SetBackgroundColor(ColorFromSetting(UISettings::values.home_bg_top.GetValue()));
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     connect(home_view, &Home::HomeView::GameActivated, this, &GameList::OnHomeGameActivated);
@@ -475,8 +474,7 @@ void GameList::ApplyHomeSettings() {
     home_view->SetLocale(UISettings::values.language.isEmpty()
                              ? QLocale::system()
                              : QLocale(UISettings::values.language));
-    home_view->SetBackgroundColors(ColorFromSetting(UISettings::values.home_bg_top.GetValue()),
-                                   ColorFromSetting(UISettings::values.home_bg_bottom.GetValue()));
+    home_view->SetBackgroundColor(ColorFromSetting(UISettings::values.home_bg_top.GetValue()));
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     const bool use_home = UISettings::values.game_list_use_home_view.GetValue();

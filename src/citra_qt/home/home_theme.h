@@ -18,11 +18,9 @@ struct Theme {
     QColor text_body{0x3E, 0x4A, 0x59};
     QColor text_muted{0x4F, 0x5B, 0x6B};
     QColor ink{0x2B, 0x36, 0x44};
-    QColor bg_top{0xD9, 0xE9, 0xFA};
-    QColor bg_mid{0xEB, 0xF1, 0xF8};
-    QColor bg_bottom{0xF3, 0xEE, 0xE9};
-    QColor blob_a{0x9C, 0xCB, 0xF5};
-    QColor blob_b{0xF6, 0xD2, 0xB8};
+    QColor bg{0xE3, 0xEE, 0xFA};     // fundo solido
+    QColor on_bg{0x14, 0x20, 0x2E};  // texto desenhado direto sobre o fundo
+    QColor on_bg_muted{0x4F, 0x5B, 0x6B};
     QColor shadow{0x1F, 0x4A, 0x78};
     QColor battery_ok{0x1F, 0xA4, 0x63};
     QColor favorite{0xF5, 0xB3, 0x01};
@@ -39,29 +37,34 @@ struct Theme {
         }
         t.accent = accent;
         t.accent_light = QColor::fromHslF(h, std::min(1.0f, s), std::min(0.9f, l + 0.12f));
-        t.bg_top = QColor::fromHslF(h, 0.70f, 0.92f);
-        t.bg_mid = QColor::fromHslF(h, 0.45f, 0.955f);
-        t.blob_a = QColor::fromHslF(h, 0.85f, 0.80f);
+        t.bg = QColor::fromHslF(h, 0.60f, 0.92f);
+        t.AdaptToBackground();
         t.shadow = QColor::fromHslF(h, 0.50f, 0.30f);
         return t;
     }
 
-    /// Como FromAccent, mas com as cores do degrade de fundo escolhidas pelo usuario.
-    /// Cores invalidas mantem o valor automatico derivado da cor de destaque.
-    static Theme FromColors(const QColor& accent, const QColor& top, const QColor& bottom) {
+    /// Como FromAccent, mas com a cor de fundo (solida) escolhida pelo usuario.
+    /// Cor invalida mantem o valor automatico derivado da cor de destaque.
+    static Theme FromColors(const QColor& accent, const QColor& background) {
         Theme t = FromAccent(accent);
-        if (top.isValid()) {
-            t.bg_top = top;
-            t.blob_a = Tint(top, 0.80f);
-        }
-        if (bottom.isValid()) {
-            t.bg_bottom = bottom;
-            t.blob_b = Tint(bottom, 0.80f);
-        }
-        if (top.isValid() || bottom.isValid()) {
-            t.bg_mid = Mix(t.bg_top, t.bg_bottom, 0.5f);
+        if (background.isValid()) {
+            t.bg = background;
+            t.AdaptToBackground();
         }
         return t;
+    }
+
+    /// Texto sobre o fundo: escuro em fundos claros e claro em fundos escuros, para nunca
+    /// ficar com a mesma cor do fundo.
+    void AdaptToBackground() {
+        const double luma = 0.299 * bg.redF() + 0.587 * bg.greenF() + 0.114 * bg.blueF();
+        if (luma < 0.55) {
+            on_bg = QColor(0xF5, 0xF8, 0xFC);
+            on_bg_muted = QColor(0xC9, 0xD3, 0xDF);
+        } else {
+            on_bg = QColor(0x14, 0x20, 0x2E);
+            on_bg_muted = QColor(0x4F, 0x5B, 0x6B);
+        }
     }
 
     static QColor Mix(const QColor& a, const QColor& b, float amount) {

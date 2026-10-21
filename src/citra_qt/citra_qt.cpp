@@ -3057,7 +3057,6 @@ void GMainWindow::OnConfigure() {
     auto old_theme = UISettings::values.theme;
     const auto old_accent = UISettings::values.home_accent_color.GetValue();
     const auto old_bg_top = UISettings::values.home_bg_top.GetValue();
-    const auto old_bg_bottom = UISettings::values.home_bg_bottom.GetValue();
     const int old_input_profile_index = Settings::values.current_input_profile_index;
     const auto old_input_profiles = Settings::values.input_profiles;
     const auto old_touch_from_button_maps = Settings::values.touch_from_button_maps;
@@ -3074,8 +3073,7 @@ void GMainWindow::OnConfigure() {
         InitializeHotkeys();
         if (UISettings::values.theme != old_theme ||
             UISettings::values.home_accent_color.GetValue() != old_accent ||
-            UISettings::values.home_bg_top.GetValue() != old_bg_top ||
-            UISettings::values.home_bg_bottom.GetValue() != old_bg_bottom) {
+            UISettings::values.home_bg_top.GetValue() != old_bg_top) {
             UpdateUITheme();
         }
 #ifdef ENABLE_DISCORD_RPC
@@ -4326,16 +4324,19 @@ void GMainWindow::UpdateUITheme() {
                 };
                 const Home::Theme t = Home::Theme::FromColors(
                     QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())),
-                    to_color(UISettings::values.home_bg_top.GetValue()),
-                    to_color(UISettings::values.home_bg_bottom.GetValue()));
+                    to_color(UISettings::values.home_bg_top.GetValue()));
+                // As janelas do app usam sempre um fundo claro (texto escuro); se o fundo
+                // escolhido for escuro, ele so vale para a tela inicial.
+                const QColor window_bg =
+                    t.on_bg.lightnessF() > 0.5f ? Home::Theme::Mix(t.bg, Qt::white, 0.9f) : t.bg;
                 const std::pair<const char*, QColor> tokens[] = {
                     {"@accent_dark@", t.accent.darker(115)},
                     {"@accent@", t.accent},
-                    {"@tint_hover@", t.bg_top.darker(106)},
-                    {"@tint@", t.bg_top},
-                    {"@border@", t.bg_top.darker(115)},
+                    {"@tint_hover@", window_bg.darker(106)},
+                    {"@tint@", window_bg},
+                    {"@border@", window_bg.darker(115)},
                     {"@surface@", QColor(0xFB, 0xFD, 0xFF)},
-                    {"@bg@", t.bg_mid},
+                    {"@bg@", Home::Theme::Mix(window_bg, Qt::white, 0.5f)},
                     {"@text@", t.text},
                     {"@muted@", t.text_muted},
                 };

@@ -82,7 +82,7 @@ public:
     /// Troca a cor de destaque e deriva o restante da paleta.
     void SetAccentColor(const QColor& accent);
     /// Cores do degrade de fundo; cor invalida = automatica a partir do destaque.
-    void SetBackgroundColors(const QColor& top, const QColor& bottom);
+    void SetBackgroundColor(const QColor& color);
     const Theme& GetTheme() const {
         return theme;
     }
@@ -122,7 +122,6 @@ private:
     Theme theme;
     QColor accent_color{0x0F, 0x6F, 0xD0};
     QColor bg_top_color;
-    QColor bg_bottom_color;
     QLocale ui_locale = QLocale::system();
     std::vector<GameInfo> games;
     SortMode sort_mode = SortMode::Recent;
@@ -157,7 +156,6 @@ private:
     QPushButton* more_button = nullptr;
 
     QLabel* grid_title = nullptr;
-    QLabel* grid_count = nullptr;
     QWidget* empty_state = nullptr;
     QLabel* empty_label = nullptr;
     QPushButton* empty_add_button = nullptr;

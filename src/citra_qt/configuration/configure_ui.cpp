@@ -28,23 +28,14 @@ ConfigureUi::ConfigureUi(QWidget* parent)
     });
     connect(ui->home_bg_top_button, &QPushButton::clicked, this, [this] {
         const QColor color = QColorDialog::getColor(
-            home_bg_top.isValid() ? home_bg_top : QColor(0xD9, 0xE9, 0xFA), this,
-            tr("Background color (start)"));
+            home_bg_top.isValid() ? home_bg_top : QColor(0xE3, 0xEE, 0xFA), this,
+            tr("Background color"));
         if (color.isValid()) {
             SetBackgroundButtonColor(ui->home_bg_top_button, home_bg_top, color);
         }
     });
-    connect(ui->home_bg_bottom_button, &QPushButton::clicked, this, [this] {
-        const QColor color = QColorDialog::getColor(
-            home_bg_bottom.isValid() ? home_bg_bottom : QColor(0xF3, 0xEE, 0xE9), this,
-            tr("Background color (end)"));
-        if (color.isValid()) {
-            SetBackgroundButtonColor(ui->home_bg_bottom_button, home_bg_bottom, color);
-        }
-    });
     connect(ui->home_bg_reset_button, &QPushButton::clicked, this, [this] {
         SetBackgroundButtonColor(ui->home_bg_top_button, home_bg_top, QColor());
-        SetBackgroundButtonColor(ui->home_bg_bottom_button, home_bg_bottom, QColor());
     });
 }
 
@@ -125,8 +116,6 @@ void ConfigureUi::SetConfiguration() {
     };
     SetBackgroundButtonColor(ui->home_bg_top_button, home_bg_top,
                              bg_color(UISettings::values.home_bg_top.GetValue()));
-    SetBackgroundButtonColor(ui->home_bg_bottom_button, home_bg_bottom,
-                             bg_color(UISettings::values.home_bg_bottom.GetValue()));
     ui->show_advanced_frametime_info->setChecked(
         UISettings::values.show_advanced_frametime_info.GetValue());
 }
@@ -145,8 +134,6 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.game_list_use_home_view = ui->toggle_home_view->isChecked();
     UISettings::values.home_accent_color = home_accent.name().toStdString();
     UISettings::values.home_bg_top = home_bg_top.isValid() ? home_bg_top.name().toStdString() : "";
-    UISettings::values.home_bg_bottom =
-        home_bg_bottom.isValid() ? home_bg_bottom.name().toStdString() : "";
     UISettings::values.show_advanced_frametime_info = ui->show_advanced_frametime_info->isChecked();
 }
 
