@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the misc/licenses/gplv2.txt file included.
 
+#include <QColorDialog>
 #include <QDirIterator>
 #include "citra_qt/configuration/configure_ui.h"
 #include "citra_qt/uisettings.h"
@@ -18,6 +19,21 @@ ConfigureUi::ConfigureUi(QWidget* parent)
     }
 
     SetConfiguration();
+
+    connect(ui->home_accent_button, &QPushButton::clicked, this, [this] {
+        const QColor color = QColorDialog::getColor(home_accent, this, tr("Accent color"));
+        if (color.isValid()) {
+            SetAccentButtonColor(color);
+        }
+    });
+}
+
+void ConfigureUi::SetAccentButtonColor(const QColor& color) {
+    home_accent = color;
+    ui->home_accent_button->setStyleSheet(
+        QStringLiteral("QPushButton{ background: %1; border: 1px solid #808080; "
+                       "border-radius: 4px; }")
+            .arg(color.name()));
 }
 
 ConfigureUi::~ConfigureUi() = default;
@@ -66,6 +82,9 @@ void ConfigureUi::SetConfiguration() {
     ui->toggle_hide_no_icon->setChecked(UISettings::values.game_list_hide_no_icon.GetValue());
     ui->toggle_single_line_mode->setChecked(
         UISettings::values.game_list_single_line_mode.GetValue());
+    ui->toggle_home_view->setChecked(UISettings::values.game_list_use_home_view.GetValue());
+    SetAccentButtonColor(
+        QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     ui->show_advanced_frametime_info->setChecked(
         UISettings::values.show_advanced_frametime_info.GetValue());
 }
@@ -81,6 +100,8 @@ void ConfigureUi::ApplyConfiguration() {
         static_cast<UISettings::GameListText>(ui->row_2_text_combobox->currentIndex() - 1);
     UISettings::values.game_list_hide_no_icon = ui->toggle_hide_no_icon->isChecked();
     UISettings::values.game_list_single_line_mode = ui->toggle_single_line_mode->isChecked();
+    UISettings::values.game_list_use_home_view = ui->toggle_home_view->isChecked();
+    UISettings::values.home_accent_color = home_accent.name().toStdString();
     UISettings::values.show_advanced_frametime_info = ui->show_advanced_frametime_info->isChecked();
 }
 

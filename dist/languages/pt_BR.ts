@@ -7846,4 +7846,120 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Árvore de espera</translation>
     </message>
 </context>
+<context>
+    <name>Home::HomeView</name>
+    <message>
+        <source>Azahar</source>
+        <translation>Azahar</translation>
+    </message>
+    <message>
+        <source>NINTENDO 3DS EMULATOR</source>
+        <translation>EMULADOR DE NINTENDO 3DS</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Configurações</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Jogar</translation>
+    </message>
+    <message>
+        <source>More options</source>
+        <translation>Mais opções</translation>
+    </message>
+    <message>
+        <source>Favorite</source>
+        <translation>Favorito</translation>
+    </message>
+    <message>
+        <source>My Games</source>
+        <translation>Meus jogos</translation>
+    </message>
+    <message>
+        <source>Sort: %1</source>
+        <translation>Ordenar: %1</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>Tempo de jogo</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Tamanho</translation>
+    </message>
+    <message>
+        <source>Grid view</source>
+        <translation>Visualização em grade</translation>
+    </message>
+    <message>
+        <source>List view</source>
+        <translation>Visualização em lista</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>Início</translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation>Biblioteca</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Buscar</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Pastas</translation>
+    </message>
+    <message>
+        <source>No games found</source>
+        <translation>Nenhum jogo encontrado</translation>
+    </message>
+    <message>
+        <source>Unknown title</source>
+        <translation>Título desconhecido</translation>
+    </message>
+    <message>
+        <source>%1 played</source>
+        <translation>%1 jogadas</translation>
+    </message>
+    <message>
+        <source>Not played yet</source>
+        <translation>Ainda não jogado</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n game(s)</source>
+        <translation>
+            <numerusform>%n jogo</numerusform>
+            <numerusform>%n jogos</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ConfigureUi</name>
+    <message>
+        <source>Use the Home screen (grid view)</source>
+        <translation>Usar a tela inicial (grade)</translation>
+    </message>
+    <message>
+        <source>Home screen accent color</source>
+        <translation>Cor de destaque da tela inicial</translation>
+    </message>
+    <message>
+        <source>Accent color</source>
+        <translation>Cor de destaque</translation>
+    </message>
+</context>
+<context>
+    <name>MainWindow</name>
+    <message>
+        <source>Show Home Screen</source>
+        <translation>Mostrar tela inicial</translation>
+    </message>
+</context>
 </TS>

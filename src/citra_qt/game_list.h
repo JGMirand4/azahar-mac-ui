@@ -21,6 +21,10 @@ enum class MediaType : u32;
 class GameListWorker;
 class GameListDir;
 class GameListSearchField;
+namespace Home {
+class HomeView;
+struct GameInfo;
+} // namespace Home
 class GMainWindow;
 class QFileSystemWatcher;
 class QHBoxLayout;
@@ -92,6 +96,14 @@ public:
     void AddFavorite(u64 program_id);
     void RemoveFavorite(u64 program_id);
 
+    /// Alterna entre a tela inicial estilo HOME e a lista classica.
+    void SetHomeMode(bool enable);
+    /// Reaplica cor de destaque e modo de exibicao a partir das configuracoes.
+    void ApplyHomeSettings();
+    bool IsHomeMode() const {
+        return home_mode;
+    }
+
     static const QStringList supported_file_extensions;
 
 signals:
@@ -107,6 +119,8 @@ signals:
     void AddDirectory();
     void ShowList(bool show);
     void PopulatingCompleted();
+    void OpenSettingsRequested();
+    void HomeModeChanged(bool enabled);
 #ifdef ENABLE_DEVELOPER_OPTIONS
     void StartingLaunchStressTest(const QString& game_path);
 #endif
@@ -122,6 +136,10 @@ private:
     void AddEntry(const QList<QStandardItem*>& entry_items, GameListDir* parent);
     void ValidateEntry(const QModelIndex& item);
     void DonePopulating(const QStringList& watch_list);
+
+    void RebuildHomeView();
+    void OnHomeGameActivated(const QString& path);
+    void PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& global_pos);
 
     void PopupContextMenu(const QPoint& menu_location);
     void PopupHeaderContextMenu(const QPoint& menu_location);
@@ -141,6 +159,9 @@ private:
     GMainWindow* main_window = nullptr;
     QVBoxLayout* layout = nullptr;
     QTreeView* tree_view = nullptr;
+    Home::HomeView* home_view = nullptr;
+    bool home_mode = false;
+    bool filter_bar_visible = true;
     QStandardItemModel* item_model = nullptr;
     GameListWorker* current_worker = nullptr;
     QFileSystemWatcher* watcher = nullptr;

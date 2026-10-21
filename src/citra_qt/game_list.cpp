@@ -4,6 +4,7 @@
 
 #include <QActionGroup>
 #include <QApplication>
+#include <QColor>
 #include <QDir>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
@@ -32,6 +33,7 @@
 #include "citra_qt/game_list.h"
 #include "citra_qt/game_list_p.h"
 #include "citra_qt/game_list_worker.h"
+#include "citra_qt/home/home_view.h"
 #include "citra_qt/uisettings.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
@@ -200,6 +202,10 @@ void GameList::OnItemExpanded(const QModelIndex& item) {
 
 // Event in order to filter the gamelist after editing the searchfield
 void GameList::OnTextChanged(const QString& new_text) {
+    if (home_mode) {
+        const int visible = home_view->SetFilter(new_text);
+        search_field->setFilterResult(visible, home_view->GameCount());
+    }
     const int folder_count = tree_view->model()->rowCount();
     QString edit_filter_text = new_text.toLower();
     QStandardItem* folder;
@@ -387,9 +393,129 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
+    home_view = new Home::HomeView(this);
+    home_view->SetAccentColor(QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    connect(home_view, &Home::HomeView::GameActivated, this, &GameList::OnHomeGameActivated);
+    connect(home_view, &Home::HomeView::GameContextMenuRequested, this,
+            &GameList::PopupHomeContextMenu);
+    connect(home_view, &Home::HomeView::FavoriteToggleRequested, this,
+            [this](qulonglong id) { ToggleFavorite(id); });
+    connect(home_view, &Home::HomeView::SettingsRequested, this,
+            &GameList::OpenSettingsRequested);
+    connect(home_view, &Home::HomeView::AddFolderRequested, this, &GameList::AddDirectory);
+    connect(home_view, &Home::HomeView::SearchRequested, this,
+            [this] { main_window->filterBarSetChecked(true); });
+    connect(home_view, &Home::HomeView::ClassicViewRequested, this,
+            [this] { SetHomeMode(false); });
+
+    layout->addWidget(home_view);
     layout->addWidget(tree_view);
     layout->addWidget(search_field);
     setLayout(layout);
+
+    SetHomeMode(UISettings::values.game_list_use_home_view.GetValue());
+}
+
+void GameList::SetHomeMode(bool enable) {
+    home_mode = enable;
+    home_view->setVisible(enable);
+    tree_view->setVisible(!enable);
+    if (enable) {
+        layout->removeWidget(search_field);
+        home_view->SetSearchWidget(search_field);
+        search_field->setVisible(filter_bar_visible);
+        RebuildHomeView();
+    } else {
+        home_view->TakeSearchWidget();
+        search_field->setParent(this);
+        layout->addWidget(search_field);
+        search_field->setVisible(filter_bar_visible);
+    }
+    UISettings::values.game_list_use_home_view.SetValue(enable);
+    emit HomeModeChanged(enable);
+}
+
+void GameList::ApplyHomeSettings() {
+    home_view->SetAccentColor(
+        QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    const bool use_home = UISettings::values.game_list_use_home_view.GetValue();
+    if (use_home != home_mode) {
+        SetHomeMode(use_home);
+    }
+}
+
+void GameList::OnHomeGameActivated(const QString& path) {
+    if (path.isEmpty()) {
+        return;
+    }
+    const QFileInfo file_info(path);
+    if (!file_info.exists() || file_info.isDir()) {
+        return;
+    }
+    search_field->clear();
+    emit GameChosen(path);
+}
+
+void GameList::PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& global_pos) {
+    QMenu context_menu;
+    AddGamePopup(context_menu, info.path, info.title, info.program_id, info.extdata_id,
+                 static_cast<Service::FS::MediaType>(info.media_type), info.can_insert);
+    context_menu.exec(global_pos);
+}
+
+void GameList::RebuildHomeView() {
+    std::vector<Home::GameInfo> games;
+    const auto* root = item_model->invisibleRootItem();
+    for (int i = 0; i < root->rowCount(); ++i) {
+        const QStandardItem* dir = root->child(i, 0);
+        if (dir == nullptr) {
+            continue;
+        }
+        const auto type = dir->data(GameListItem::TypeRole).value<GameListItemType>();
+        if (type != GameListItemType::CustomDir && type != GameListItemType::InstalledDir &&
+            type != GameListItemType::SystemDir) {
+            continue;
+        }
+        for (int j = 0; j < dir->rowCount(); ++j) {
+            const QStandardItem* name = dir->child(j, COLUMN_NAME);
+            if (name == nullptr) {
+                continue;
+            }
+            Home::GameInfo info;
+            info.path = name->data(GameListItemPath::FullPathRole).toString();
+            const QString file_name = QFileInfo(info.path).completeBaseName();
+            info.title = name->data(GameListItemPath::TitleRole).toString();
+            if (info.title.isEmpty()) {
+                info.title = file_name;
+            }
+            const QString long_title = name->data(GameListItemPath::LongTitleRole).toString();
+            info.subtitle = long_title.isEmpty() ? file_name : long_title.simplified();
+            info.icon = name->data(GameListItemPath::LargeIconRole).value<QPixmap>();
+            info.program_id = name->data(GameListItemPath::ProgramIdRole).toULongLong();
+            info.extdata_id = name->data(GameListItemPath::ExtdataIdRole).toULongLong();
+            info.media_type = name->data(GameListItemPath::MediaTypeRole).toUInt();
+            info.can_insert = name->data(GameListItemPath::CanInsertRole).toUInt() != 0;
+            info.favorite = UISettings::values.favorited_ids.contains(info.program_id);
+
+            if (const auto* it = dir->child(j, COLUMN_REGION)) {
+                info.region = it->text().replace(QLatin1Char{'\n'}, QStringLiteral(", "));
+            }
+            if (const auto* it = dir->child(j, COLUMN_COMPATIBILITY)) {
+                info.compat_text = it->text();
+                info.compat_key = it->data(GameListItemCompat::CompatNumberRole).toString();
+            }
+            if (const auto* it = dir->child(j, COLUMN_SIZE)) {
+                info.size_text = it->text();
+                info.size_bytes = it->data(GameListItemSize::SizeRole).toULongLong();
+            }
+            if (const auto* it = dir->child(j, COLUMN_PLAY_TIME)) {
+                info.play_time_text = it->text();
+                info.play_time_seconds = it->data(GameListItemPlayTime::PlayTimeRole).toULongLong();
+            }
+            games.push_back(std::move(info));
+        }
+    }
+    home_view->SetGames(std::move(games));
 }
 
 GameList::~GameList() {
@@ -403,6 +529,7 @@ void GameList::SetFilterFocus() {
 }
 
 void GameList::SetFilterVisible(bool visibility) {
+    filter_bar_visible = visibility;
     search_field->setVisible(visibility);
 }
 
@@ -506,7 +633,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
         children_total += item_model->item(i, 0)->rowCount();
     }
     search_field->setFilterResult(children_total, children_total);
-    if (children_total > 0) {
+    if (children_total > 0 && !home_mode) {
         search_field->setFocus();
     }
     item_model->sort(tree_view->header()->sortIndicatorSection(),
@@ -518,6 +645,7 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     }
     tree_view->header()->setStretchLastSection(true);
 
+    RebuildHomeView();
     emit PopulatingCompleted();
 }
 
@@ -1161,6 +1289,7 @@ void GameList::ToggleFavorite(u64 program_id) {
             tree_view->setRowHidden(0, item_model->invisibleRootItem()->index(), true);
         }
     }
+    home_view->SetFavorite(program_id, UISettings::values.favorited_ids.contains(program_id));
 }
 
 void GameList::AddFavorite(u64 program_id) {

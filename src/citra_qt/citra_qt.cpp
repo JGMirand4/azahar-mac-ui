@@ -1031,6 +1031,7 @@ void GMainWindow::RestoreUIState() {
     OnDisplayTitleBars(ui->action_Display_Dock_Widget_Headers->isChecked());
 
     ui->action_Show_Filter_Bar->setChecked(UISettings::values.show_filter_bar.GetValue());
+    ui->action_Show_Home_Screen->setChecked(game_list->IsHomeMode());
     game_list->SetFilterVisible(ui->action_Show_Filter_Bar->isChecked());
 
     ui->action_Show_Status_Bar->setChecked(UISettings::values.show_status_bar.GetValue());
@@ -1085,6 +1086,10 @@ void GMainWindow::ConnectAppEvents() {
 
 void GMainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::GameChosen, this, &GMainWindow::OnGameListLoadFile);
+    connect(game_list, &GameList::OpenSettingsRequested, this, &GMainWindow::OnConfigure);
+    connect(game_list, &GameList::HomeModeChanged, ui->action_Show_Home_Screen,
+            &QAction::setChecked);
+    connect(ui->action_Show_Home_Screen, &QAction::triggered, game_list, &GameList::SetHomeMode);
     connect(game_list, &GameList::OpenDirectory, this, &GMainWindow::OnGameListOpenDirectory);
     connect(game_list, &GameList::OpenFolderRequested, this, &GMainWindow::OnGameListOpenFolder);
     connect(game_list, &GameList::RemovePlayTimeRequested, this,
@@ -3077,6 +3082,7 @@ void GMainWindow::OnConfigure() {
             multiplayer_state->UpdateCredentials();
         emit UpdateThemedIcons();
         SyncMenuUISettings();
+        game_list->ApplyHomeSettings();
         game_list->RefreshGameDirectory();
         config->Save();
         if (UISettings::values.hide_mouse && emulation_running) {
@@ -4710,6 +4716,7 @@ int LaunchQtFrontend(int argc, char* argv[]) {
     Q_INIT_RESOURCE(theme_colorful_dark);
     Q_INIT_RESOURCE(theme_colorful_midnight_blue);
     Q_INIT_RESOURCE(theme_default);
+    Q_INIT_RESOURCE(theme_home3ds);
     Q_INIT_RESOURCE(theme_qdarkstyle);
     Q_INIT_RESOURCE(theme_qdarkstyle_midnight_blue);
 #ifdef ENABLE_QT_TRANSLATION

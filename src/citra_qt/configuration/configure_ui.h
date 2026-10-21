@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <QColor>
 #include <QWidget>
 
 namespace Ui {
@@ -30,5 +31,8 @@ signals:
     void LanguageChanged(const QString& locale);
 
 private:
+    void SetAccentButtonColor(const QColor& color);
+
+    QColor home_accent;
     std::unique_ptr<Ui::ConfigureUi> ui;
 };

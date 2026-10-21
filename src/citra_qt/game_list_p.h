@@ -160,6 +160,7 @@ public:
     static constexpr int LongTitleRole = SortRole + 5;
     static constexpr int MediaTypeRole = SortRole + 6;
     static constexpr int CanInsertRole = SortRole + 7;
+    static constexpr int LargeIconRole = SortRole + 8; // always the 48px icon (home screen)
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, std::span<const u8> smdh_data, u64 program_id,
@@ -182,6 +183,7 @@ public:
                      UISettings::GameListIconSize::LargeIcon;
 
         if (!Loader::IsValidSMDH(smdh_data)) {
+            setData(QPixmap(), LargeIconRole);
             // SMDH is not valid, set a default icon
             if (UISettings::values.game_list_icon_size.GetValue() !=
                 UISettings::GameListIconSize::NoIcon)
@@ -194,6 +196,8 @@ public:
 
         Loader::SMDH smdh;
         std::memcpy(&smdh, smdh_data.data(), sizeof(Loader::SMDH));
+
+        setData(GetQPixmapFromSMDH(smdh, true), LargeIconRole);
 
         // Get icon from SMDH
         if (UISettings::values.game_list_icon_size.GetValue() !=

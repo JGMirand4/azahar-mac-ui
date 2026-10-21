@@ -1191,6 +1191,13 @@ void HomeView::SetSearchWidget(QWidget* widget) {
     grid_layout->insertWidget(1, widget);
 }
 
+void HomeView::TakeSearchWidget() {
+    if (search_widget != nullptr) {
+        grid_layout->removeWidget(search_widget);
+        search_widget = nullptr;
+    }
+}
+
 void HomeView::FocusGrid() {
     grid->setFocus();
 }

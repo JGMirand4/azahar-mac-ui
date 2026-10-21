@@ -132,6 +132,11 @@ add_library(citra_qt STATIC EXCLUDE_FROM_ALL
     game_list_p.h
     game_list_worker.cpp
     game_list_worker.h
+    home/battery_status.cpp
+    home/battery_status.h
+    home/home_theme.h
+    home/home_view.cpp
+    home/home_view.h
     hotkeys.cpp
     hotkeys.h
     hotkey_monitor.cpp
@@ -330,7 +335,7 @@ if (NOT WIN32)
 endif()
 
 if (APPLE)
-    target_link_libraries(citra_qt PRIVATE Qt6::QDarwinCameraPermissionPlugin)
+    target_link_libraries(citra_qt PRIVATE Qt6::QDarwinCameraPermissionPlugin "-framework IOKit" "-framework CoreFoundation")
 elseif (UNIX)
     target_link_libraries(citra_qt PUBLIC Qt6::DBus gamemode)
 endif()

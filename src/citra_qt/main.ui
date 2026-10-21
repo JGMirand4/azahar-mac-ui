@@ -177,6 +177,7 @@
     <addaction name="menu_Screen_Layout"/>
     <addaction name="separator"/>
     <addaction name="action_Display_Dock_Widget_Headers"/>
+    <addaction name="action_Show_Home_Screen"/>
     <addaction name="action_Show_Filter_Bar"/>
     <addaction name="action_Show_Status_Bar"/>
     <addaction name="separator"/>
@@ -401,6 +402,14 @@
    </property>
    <property name="text">
     <string>Display Dock Widget Headers</string>
+   </property>
+  </action>
+  <action name="action_Show_Home_Screen">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Home Screen</string>
    </property>
   </action>
   <action name="action_Show_Filter_Bar">

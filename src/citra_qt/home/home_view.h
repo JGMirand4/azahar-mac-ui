@@ -71,6 +71,8 @@ public:
 
     /// Coloca o widget de busca (ja existente) dentro do painel da grade.
     void SetSearchWidget(QWidget* widget);
+    /// Remove o widget de busca do painel (sem destrui-lo).
+    void TakeSearchWidget();
     void SetSortMode(SortMode mode);
 
     /// Troca a cor de destaque e deriva o restante da paleta.
