@@ -2,10 +2,14 @@
 // Licensed under GPLv3 or any later version
 // Refer to the LICENSE.txt file included.
 
+#include <algorithm>
 #include <QActionGroup>
 #include <QApplication>
 #include <QColor>
 #include <QDir>
+#include <QImage>
+#include <QFileDialog>
+#include <QCryptographicHash>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QHBoxLayout>
@@ -465,8 +469,54 @@ void GameList::OnHomeGameActivated(const QString& path) {
     emit GameChosen(path);
 }
 
+// Capas personalizadas ficam em <pasta do usuario>/covers/<id do jogo>.png
+static QString CoverFilePath(u64 program_id, const QString& game_path) {
+    const QString dir = QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
+                        QStringLiteral("covers");
+    const QString name =
+        program_id != 0
+            ? QStringLiteral("%1").arg(static_cast<qulonglong>(program_id), 16, 16, QLatin1Char{'0'})
+            : QString::fromLatin1(
+                  QCryptographicHash::hash(game_path.toUtf8(), QCryptographicHash::Md5).toHex());
+    return dir + QLatin1Char{'/'} + name + QStringLiteral(".png");
+}
+
 void GameList::PopupHomeContextMenu(const Home::GameInfo& info, const QPoint& global_pos) {
     QMenu context_menu;
+    const QString cover_path = CoverFilePath(info.program_id, info.path);
+    QAction* change_cover = context_menu.addAction(tr("Change cover..."));
+    connect(change_cover, &QAction::triggered, this, [this, info, cover_path] {
+        const QString image = QFileDialog::getOpenFileName(
+            this, tr("Choose a cover image"), QString(),
+            tr("Images (*.png *.jpg *.jpeg *.bmp *.webp)"));
+        if (image.isEmpty()) {
+            return;
+        }
+        QImage source(image);
+        if (source.isNull()) {
+            QMessageBox::warning(this, tr("Change cover"), tr("Could not open this image."));
+            return;
+        }
+        // Recorta para quadrado (centro) e reduz: o card usa um quadrado arredondado.
+        const int side = std::min(source.width(), source.height());
+        QImage square = source.copy((source.width() - side) / 2, (source.height() - side) / 2,
+                                    side, side)
+                            .scaled(256, 256, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        QDir().mkpath(QFileInfo(cover_path).absolutePath());
+        if (!square.save(cover_path, "PNG")) {
+            QMessageBox::warning(this, tr("Change cover"), tr("Could not save the cover."));
+            return;
+        }
+        RebuildHomeView();
+    });
+    if (QFileInfo::exists(cover_path)) {
+        QAction* reset_cover = context_menu.addAction(tr("Restore original cover"));
+        connect(reset_cover, &QAction::triggered, this, [this, cover_path] {
+            QFile::remove(cover_path);
+            RebuildHomeView();
+        });
+    }
+    context_menu.addSeparator();
     AddGamePopup(context_menu, info.path, info.title, info.program_id, info.extdata_id,
                  static_cast<Service::FS::MediaType>(info.media_type), info.can_insert);
     context_menu.exec(global_pos);
@@ -501,6 +551,12 @@ void GameList::RebuildHomeView() {
             info.subtitle = long_title.isEmpty() ? file_name : long_title.simplified();
             info.icon = name->data(GameListItemPath::LargeIconRole).value<QPixmap>();
             info.program_id = name->data(GameListItemPath::ProgramIdRole).toULongLong();
+            if (const QString cover = CoverFilePath(info.program_id, info.path);
+                QFileInfo::exists(cover)) {
+                if (QPixmap custom(cover); !custom.isNull()) {
+                    info.icon = custom;
+                }
+            }
             info.extdata_id = name->data(GameListItemPath::ExtdataIdRole).toULongLong();
             info.media_type = name->data(GameListItemPath::MediaTypeRole).toUInt();
             info.can_insert = name->data(GameListItemPath::CanInsertRole).toUInt() != 0;

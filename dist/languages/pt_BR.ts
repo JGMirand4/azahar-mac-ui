@@ -7962,4 +7962,35 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Mostrar tela inicial</translation>
     </message>
 </context>
+<context>
+    <name>GameList</name>
+    <message>
+        <source>Change cover...</source>
+        <translation>Alterar capa...</translation>
+    </message>
+    <message>
+        <source>Choose a cover image</source>
+        <translation>Escolha uma imagem de capa</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>Imagens (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
+    </message>
+    <message>
+        <source>Change cover</source>
+        <translation>Alterar capa</translation>
+    </message>
+    <message>
+        <source>Could not open this image.</source>
+        <translation>Não foi possível abrir esta imagem.</translation>
+    </message>
+    <message>
+        <source>Could not save the cover.</source>
+        <translation>Não foi possível salvar a capa.</translation>
+    </message>
+    <message>
+        <source>Restore original cover</source>
+        <translation>Restaurar capa original</translation>
+    </message>
+</context>
 </TS>
