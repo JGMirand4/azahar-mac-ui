@@ -2,11 +2,12 @@
 """Aplica um icone PNG quadrado (ex.: gerado por IA) em todos os destinos do app.
 
 Uso (da raiz do repositorio):
-    python3 tools/apply_icon.py caminho/do/icone.png
+    python3 tools/apply_icon.py caminho/do/icone.png [caminho/do/icone-claro.png]
 
 Fundo preto puro nos cantos vira transparente (preenchimento a partir das bordas).
 Grava dist/azahar.png, azahar.ico, apple/azahar.icns, apple/launch_logo.png e os
-256x256 do tema padrao. Dependencia: Pillow.
+256x256 do tema padrao. Com o segundo argumento (versao clara) grava tambem
+apple/azahar-light.icns e os PNGs usados pelo app para alternar o icone. Dependencia: Pillow.
 """
 import sys
 from collections import deque
@@ -48,7 +49,7 @@ def knock_out_corners(im, threshold=8):
 
 
 def main():
-    if len(sys.argv) != 2:
+    if len(sys.argv) not in (2, 3):
         sys.exit(__doc__)
     src = knock_out_corners(Image.open(sys.argv[1]))
     d = ROOT / "dist"
@@ -66,6 +67,14 @@ def main():
     sizes = [16, 32, 64, 128, 256, 512, 1024]
     images = [sized(s) for s in sizes]
     images[-1].save(d / "apple" / "azahar.icns", append_images=images[:-1])
+    home = d / "qt_themes" / "home3ds"
+    sized(256).save(home / "app_icon_dark.png")
+    if len(sys.argv) == 3:
+        light = knock_out_corners(Image.open(sys.argv[2]))
+        light.resize((512, 512), Image.LANCZOS).save(d / "azahar-light.png")
+        light.resize((256, 256), Image.LANCZOS).save(home / "app_icon_light.png")
+        imgs = [light.resize((n, n), Image.LANCZOS) for n in sizes]
+        imgs[-1].save(d / "apple" / "azahar-light.icns", append_images=imgs[:-1])
     print("Icone aplicado.")
 
 

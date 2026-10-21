@@ -129,6 +129,7 @@ struct Values {
     Settings::Setting<int> home_pad_style{0, Settings::Keys::homePadStyle};
     // Formato do icone dos jogos na tela inicial: 0 = normal, 1 = cartucho de 3DS.
     Settings::Setting<int> home_icon_style{0, Settings::Keys::homeIconStyle};
+    Settings::Setting<int> home_app_icon{0, Settings::Keys::homeAppIcon}; // 0 auto, 1 escuro, 2 claro
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

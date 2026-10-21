@@ -253,6 +253,7 @@ if (ENABLE_QT)
         "homeSounds"
         "homePadStyle"
         "homeIconStyle"
+        "homeAppIcon"
         "show_compat_column"
         "show_region_column"
         "show_type_column"

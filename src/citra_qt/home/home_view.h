@@ -53,7 +53,7 @@ struct GameInfo {
     bool can_insert = false;
     bool favorite = false;
     bool custom_cover = false; // capa escolhida pelo usuario (preenche o banner)
-    qint64 last_played = 0;    // segundos desde 1970; 0 = nunca jogado pelo Azahar
+    qint64 last_played = 0;    // segundos desde 1970; 0 = nunca jogado pelo Hanami
 };
 
 enum class SortMode {
@@ -143,6 +143,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private:
     friend class CardDelegate;

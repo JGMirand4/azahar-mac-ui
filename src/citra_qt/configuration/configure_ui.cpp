@@ -116,6 +116,8 @@ void ConfigureUi::SetConfiguration() {
         std::clamp(UISettings::values.home_pad_style.GetValue(), 0, 2));
     ui->icon_style_combobox->setCurrentIndex(
         std::clamp(UISettings::values.home_icon_style.GetValue(), 0, 1));
+    ui->app_icon_combobox->setCurrentIndex(
+        std::clamp(UISettings::values.home_app_icon.GetValue(), 0, 2));
     SetAccentButtonColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     const auto bg_color = [](const std::string& value) {
@@ -143,6 +145,7 @@ void ConfigureUi::ApplyConfiguration() {
     UISettings::values.home_sounds = ui->toggle_home_sounds->isChecked();
     UISettings::values.home_pad_style = ui->pad_style_combobox->currentIndex();
     UISettings::values.home_icon_style = ui->icon_style_combobox->currentIndex();
+    UISettings::values.home_app_icon = ui->app_icon_combobox->currentIndex();
     UISettings::values.home_accent_color = home_accent.name().toStdString();
     UISettings::values.home_bg_top = home_bg_top.isValid() ? home_bg_top.name().toStdString() : "";
     UISettings::values.show_advanced_frametime_info = ui->show_advanced_frametime_info->isChecked();

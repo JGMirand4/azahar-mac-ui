@@ -13,6 +13,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QCache>
+#include <QGuiApplication>
 #include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QLabel>
@@ -284,13 +285,14 @@ QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool fille
 /// Emblema da marca: quadrado arredondado com degrade da cor de destaque e uma flor de
 /// laranjeira (azahar) branca no centro.
 QPixmap MakeBrandBadge(const Theme& theme, int size, qreal dpr) {
-    // Preferimos o icone oficial do app; a flor desenhada abaixo e o plano B.
-    static const QPixmap app_icon(QStringLiteral(":/icons/default/256x256/azahar.png"));
+    // Preferimos o icone do app (claro ou escuro, conforme a configuracao); a flor desenhada
+    // abaixo e o plano B.
+    const QIcon app_icon = QGuiApplication::windowIcon();
     if (!app_icon.isNull()) {
-        QPixmap scaled = app_icon.scaled(QSize(size, size) * dpr, Qt::KeepAspectRatio,
-                                         Qt::SmoothTransformation);
-        scaled.setDevicePixelRatio(dpr);
-        return scaled;
+        const QPixmap from_icon = app_icon.pixmap(QSize(size, size), dpr);
+        if (!from_icon.isNull()) {
+            return from_icon;
+        }
     }
     QPixmap pm(QSize(size, size) * dpr);
     pm.setDevicePixelRatio(dpr);
@@ -1515,7 +1517,7 @@ protected:
             p.translate(rect().center());
             const qreal scale = 1.0 + 0.06 * t;
             p.scale(scale, scale);
-            p.drawText(QRectF(-300, -52, 600, 70), Qt::AlignCenter, QStringLiteral("Azahar"));
+            p.drawText(QRectF(-300, -52, 600, 70), Qt::AlignCenter, QStringLiteral("Hanami"));
             QFont tag = BodyFont(13, QFont::Bold);
             tag.setLetterSpacing(QFont::AbsoluteSpacing, 3.0);
             p.setFont(tag);
@@ -1827,7 +1829,7 @@ void HomeView::BuildUi() {
     brand_layout->addWidget(brand_badge);
     auto* brand_text = new QVBoxLayout;
     brand_text->setSpacing(0);
-    auto* app_name = new QLabel(tr("Azahar"), brand);
+    auto* app_name = new QLabel(tr("Hanami"), brand);
     app_name->setObjectName(QStringLiteral("appName"));
     app_name->setFont(RoundedFont(27, QFont::Bold));
     auto* app_tag = new QLabel(tr("NINTENDO 3DS EMULATOR"), brand);
@@ -3245,6 +3247,13 @@ void HomeView::resizeEvent(QResizeEvent* event) {
         curtain->setGeometry(rect());
     }
     UpdateHeroSize();
+}
+
+void HomeView::changeEvent(QEvent* event) {
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::ApplicationWindowIconChange && brand_badge != nullptr) {
+        brand_badge->setPixmap(MakeBrandBadge(theme, 52, devicePixelRatioF()));
+    }
 }
 
 void HomeView::UpdateHeroSize() {

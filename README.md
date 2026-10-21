@@ -1,3 +1,5 @@
+> **Hanami** é um fork do [Azahar](https://github.com/azahar-emu/azahar) com uma nova tela inicial para macOS (veja [HOME-UI.md](HOME-UI.md)). Os dados do Azahar (`Azahar/`) são movidos para `Hanami/` automaticamente na primeira abertura. Baseado no trabalho do Azahar e do Citra, sob GPLv2.
+
 ![Azahar Emulator](https://azahar-emu.org/resources/images/logo/azahar-name-and-logo.svg)
 
 ![Current Release](https://img.shields.io/github/v/release/azahar-emu/azahar?label=Current%20Release)

@@ -24,5 +24,7 @@
         <file>chevron_down.svg</file>
         <file>check.svg</file>
         <file>nintendo3ds_logo.png</file>
+        <file>app_icon_dark.png</file>
+        <file>app_icon_light.png</file>
     </qresource>
 </RCC>
