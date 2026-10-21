@@ -39,6 +39,8 @@ PadState ReadPadState() {
             state.y = state.y || [[pad buttonY] isPressed];
             state.l = state.l || [[pad leftShoulder] isPressed];
             state.r = state.r || [[pad rightShoulder] isPressed];
+            state.lt = state.lt || [[pad leftTrigger] isPressed];
+            state.rt = state.rt || [[pad rightTrigger] isPressed];
             if (@available(macOS 10.15, *)) {
                 state.start = state.start || [[pad buttonMenu] isPressed];
             }

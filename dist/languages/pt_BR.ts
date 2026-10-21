@@ -7956,6 +7956,10 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Filtro</translation>
     </message>
     <message>
+        <source>View</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
         <source>Random</source>
         <translation>Aleatório</translation>
     </message>

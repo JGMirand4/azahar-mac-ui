@@ -23,6 +23,8 @@ struct PadState {
     bool y = false; // botao de cima
     bool l = false;
     bool r = false;
+    bool lt = false; // gatilhos (L2 / R2)
+    bool rt = false;
     bool start = false;
 };
 
@@ -36,7 +38,7 @@ class GamepadNav : public QObject {
     Q_OBJECT
 
 public:
-    enum Button { Up, Down, Left, Right, A, B, X, Y, L, R, Start, ButtonCount };
+    enum Button { Up, Down, Left, Right, A, B, X, Y, L, R, Start, L2, R2, ButtonCount };
 
     explicit GamepadNav(QObject* parent = nullptr);
 

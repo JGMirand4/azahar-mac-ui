@@ -638,7 +638,7 @@ class CarouselWidget : public QWidget {
 public:
     CarouselWidget(HomeView* view_, QWidget* parent) : QWidget(parent), view(view_) {
         setFocusPolicy(Qt::StrongFocus);
-        setMinimumHeight(kSelected + 76);
+        setMinimumHeight(static_cast<int>(kSelectedBase * 0.55 + kTop + 128));
         animation = new QVariantAnimation(this);
         animation->setDuration(340);
         animation->setEasingCurve(QEasingCurve::OutCubic);
@@ -684,16 +684,35 @@ protected:
         if (rows.empty()) {
             return;
         }
+        // Brilho suave da cor de destaque atras do jogo selecionado.
+        {
+            const QPointF center(width() / 2.0, kTop + Sel() / 2.0 + 8);
+            p.save();
+            p.translate(center);
+            p.scale(1.0, 0.5); // achata o circulo numa elipse que nao encosta no topo
+            QRadialGradient glow(QPointF(0, 0), Sel() * 1.3);
+            QColor c = view->theme.accent;
+            c.setAlphaF(0.20);
+            glow.setColorAt(0.0, c);
+            c.setAlphaF(0.0);
+            glow.setColorAt(1.0, c);
+            p.setPen(Qt::NoPen);
+            p.setBrush(glow);
+            p.drawEllipse(QPointF(0, 0), Sel() * 1.3, Sel() * 1.3);
+            p.restore();
+        }
         std::vector<int> order = VisibleItems();
         std::sort(order.begin(), order.end(), [this](int a, int b) {
             return std::abs(a - position) > std::abs(b - position); // mais longe primeiro
         });
         for (const int i : order) {
             qreal opacity = 1.0;
-            const QRectF rect = TileRect(i, &opacity);
+            QRectF rect = TileRect(i, &opacity);
             if (opacity <= 0.01) {
                 continue;
             }
+            // O selecionado "sobe" um pouco em relacao aos vizinhos.
+            rect.translate(0, -12.0 * std::max(0.0, 1.0 - std::abs(i - position)));
             p.setOpacity(opacity);
             PaintTile(&p, rect, GameAt(i), view->theme, std::abs(i - position) < 0.5,
                       rect.width() / kIconSize);
@@ -702,7 +721,7 @@ protected:
 
         const GameInfo& game = GameAt(current);
         const qreal cx = width() / 2.0;
-        const qreal title_top = kTop + kSelected + 14;
+        const qreal title_top = kTop + Sel() + 22;
         const QFont title_font = RoundedFont(22, QFont::DemiBold);
         p.setFont(title_font);
         p.setPen(view->theme.text);
@@ -716,8 +735,25 @@ protected:
         if (!game.play_time_text.isEmpty()) {
             line = game.play_time_text + QStringLiteral("   \u00B7   ") + line;
         }
-        p.drawText(QRectF(cx - 320, title_rect.bottom(), 640, 24), Qt::AlignHCenter | Qt::AlignVCenter,
-                   line);
+        const QRectF line_rect(cx - 320, title_rect.bottom(), 640, 24);
+        p.drawText(line_rect, Qt::AlignHCenter | Qt::AlignVCenter, line);
+
+        // Barra de posicao: mostra onde o jogo atual esta na lista.
+        if (rows.size() > 1) {
+            const qreal bar_w = 168.0;
+            const QRectF track(cx - bar_w / 2, line_rect.bottom() + 8, bar_w, 4);
+            QColor track_color = view->theme.text_muted;
+            track_color.setAlphaF(0.22);
+            p.setPen(Qt::NoPen);
+            p.setBrush(track_color);
+            p.drawRoundedRect(track, 2, 2);
+            const qreal frac = std::clamp(position / (rows.size() - 1), 0.0, 1.0);
+            const qreal thumb_w = std::max(22.0, bar_w / static_cast<qreal>(rows.size()));
+            p.setBrush(view->theme.accent);
+            p.drawRoundedRect(QRectF(track.left() + (bar_w - thumb_w) * frac, track.top(), thumb_w,
+                                     track.height()),
+                              2, 2);
+        }
     }
 
     void mousePressEvent(QMouseEvent* event) override {
@@ -788,10 +824,23 @@ protected:
     }
 
 private:
-    static constexpr qreal kSelected = 156.0;
-    static constexpr qreal kSide = 100.0;
-    static constexpr qreal kGap = 34.0;
-    static constexpr qreal kTop = 18.0;
+    /// O carrossel encolhe quando a janela e baixa, para o titulo e a barra sempre caberem.
+    qreal Scale() const {
+        return std::clamp((height() - kTop - 128.0) / kSelectedBase, 0.55, 1.0);
+    }
+    qreal Sel() const {
+        return kSelectedBase * Scale();
+    }
+    qreal Side() const {
+        return kSideBase * Scale();
+    }
+    qreal Gap() const {
+        return kGapBase * Scale();
+    }
+    static constexpr qreal kSelectedBase = 208.0;
+    static constexpr qreal kSideBase = 128.0;
+    static constexpr qreal kGapBase = 40.0;
+    static constexpr qreal kTop = 26.0;
 
     const GameInfo& GameAt(int i) const {
         const int game_index = view->model->index(rows[i], 0).data(GameRowRole).toInt();
@@ -813,19 +862,19 @@ private:
     QRectF TileRect(int i, qreal* opacity) const {
         const qreal d = i - position;
         const qreal ad = std::abs(d);
-        const qreal near_step = kSelected / 2 + kSide / 2 + kGap;
+        const qreal near_step = Sel() / 2 + Side() / 2 + Gap();
         qreal size;
         qreal offset;
         if (ad < 1.0) {
-            size = kSelected - (kSelected - kSide) * ad;
+            size = Sel() - (Sel() - Side()) * ad;
             offset = ad * near_step;
         } else {
-            size = kSide * std::pow(0.93, ad - 1.0);
-            offset = near_step + (ad - 1.0) * (kSide * 0.92 + kGap);
+            size = Side() * std::pow(0.93, ad - 1.0);
+            offset = near_step + (ad - 1.0) * (Side() * 0.92 + Gap());
         }
         *opacity = ad < 1.0 ? 1.0 : std::clamp(1.0 - 0.22 * (ad - 1.0), 0.0, 1.0);
         const qreal x = width() / 2.0 + (d < 0 ? -offset : offset);
-        const qreal cy = kTop + kSelected / 2.0;
+        const qreal cy = kTop + Sel() / 2.0;
         return QRectF(x - size / 2, cy - size / 2, size, size);
     }
 
@@ -2129,6 +2178,7 @@ void HomeView::UpdateHints() {
         list.append({ps ? QStringLiteral("\u25A1") : QStringLiteral("X"), tr("Favorite")});
         list.append({ps ? QStringLiteral("\u25B3") : QStringLiteral("Y"), tr("Random")});
         list.append({ps ? QStringLiteral("L1  R1") : QStringLiteral("L  R"), tr("Filter")});
+        list.append({ps ? QStringLiteral("L2  R2") : QStringLiteral("LT  RT"), tr("View")});
         list.append({ps ? tr("Options") : tr("Menu"), tr("Settings")});
         hints->SetHints(list);
         return;
@@ -2166,6 +2216,13 @@ void HomeView::HandlePadButton(int button) {
         emit SettingsRequested();
         return;
     }
+    if (button == GamepadNav::L2 || button == GamepadNav::R2) {
+        // Gatilhos trocam o modo de visualizacao: carrossel, grade e lista.
+        PlaySound(static_cast<int>(SoundBank::Sound::Move));
+        SetViewMode((view_mode + (button == GamepadNav::R2 ? 1 : 2)) % 3);
+        emit PreferencesChanged();
+        return;
+    }
     struct KeyMap {
         int key;
         const char* text;
@@ -2174,6 +2231,7 @@ void HomeView::HandlePadButton(int button) {
         {Qt::Key_Up, ""},     {Qt::Key_Down, ""},   {Qt::Key_Left, ""}, {Qt::Key_Right, ""},
         {Qt::Key_Return, ""}, {Qt::Key_Escape, ""}, {Qt::Key_F, "f"},   {Qt::Key_R, "r"},
         {Qt::Key_Q, "q"},     {Qt::Key_E, "e"},     {Qt::Key_unknown, ""},
+        {Qt::Key_unknown, ""}, {Qt::Key_unknown, ""},
     };
     if (button < 0 || button >= GamepadNav::ButtonCount || kMap[button].key == Qt::Key_unknown) {
         return;
@@ -2377,7 +2435,7 @@ void HomeView::SetLibraryMode(bool enabled) {
         library_switched = false;
         SetViewMode(0);
     }
-    hero_panel->setVisible(!enabled);
+    UpdateHeroSize();
     dock_home->setChecked(!enabled);
     dock_library->setChecked(enabled);
 }
@@ -2500,6 +2558,9 @@ void HomeView::UpdateHeroSize() {
     const int hero_height =
         compact ? 168 : std::clamp(static_cast<int>(height() * 0.29), 232, 300);
     hero_panel->setFixedHeight(hero_height + kShadowTop + kShadowBottom);
+    // Janela baixa no carrossel: o titulo do jogo ja aparece embaixo da capa, entao o destaque
+    // some para a capa ganhar o espaco (Enter, clique ou A jogam; F favorita).
+    hero_panel->setVisible(!library_mode && !(compact && view_mode == 0));
     hero_art->setVisible(width() >= 900 && !compact);
     if (compact != was_compact) {
         UpdateHero();
