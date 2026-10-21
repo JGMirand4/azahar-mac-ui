@@ -577,12 +577,36 @@ HomeView::HomeView(QWidget* parent) : QWidget(parent) {
     setObjectName(QStringLiteral("homeRoot"));
     setMinimumSize(720, 600);
     BuildUi();
+    ApplyLightPalette();
     RebuildStyleSheet();
     UpdateClock();
     UpdateHero();
 }
 
 HomeView::~HomeView() = default;
+
+// A paleta e sempre clara, independente do modo escuro do sistema: o fundo (gradiente) e os
+// paineis sao desenhados por nos, entao os widgets de apoio nao podem pintar o cinza escuro
+// do sistema por cima.
+void HomeView::ApplyLightPalette() {
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, Qt::transparent);
+    pal.setColor(QPalette::Base, Qt::transparent);
+    pal.setColor(QPalette::AlternateBase, Qt::transparent);
+    pal.setColor(QPalette::Button, QColor(0xF7, 0xFA, 0xFE));
+    pal.setColor(QPalette::WindowText, theme.text);
+    pal.setColor(QPalette::Text, theme.text);
+    pal.setColor(QPalette::ButtonText, theme.text);
+    pal.setColor(QPalette::PlaceholderText, theme.text_muted);
+    pal.setColor(QPalette::Highlight, theme.accent);
+    pal.setColor(QPalette::HighlightedText, Qt::white);
+    setPalette(pal);
+    setAutoFillBackground(false);
+    for (QWidget* child : findChildren<QWidget*>()) {
+        child->setPalette(pal);
+        child->setAutoFillBackground(false);
+    }
+}
 
 void HomeView::BuildUi() {
     const qreal dpr = devicePixelRatioF();
@@ -938,6 +962,7 @@ void HomeView::BuildUi() {
 
 void HomeView::RebuildStyleSheet() {
     QString qss = QStringLiteral(R"(
+#homeRoot QWidget { background: transparent; }
 #homeRoot QLabel { background: transparent; color: @text@; }
 #homeRoot QLabel#appTag { color: @muted@; }
 #homeRoot QLabel#clockDate { color: @muted@; }
@@ -1032,6 +1057,7 @@ void HomeView::RebuildStyleSheet() {
 
 void HomeView::SetAccentColor(const QColor& accent) {
     theme = Theme::FromAccent(accent);
+    ApplyLightPalette();
     RebuildStyleSheet();
     update();
     if (grid != nullptr) {

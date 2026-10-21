@@ -101,6 +101,7 @@ private:
 
     void BuildUi();
     void RebuildStyleSheet();
+    void ApplyLightPalette();
     void RefreshModel();
     void UpdateHero();
     void UpdateClock();
