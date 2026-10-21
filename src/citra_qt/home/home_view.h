@@ -227,6 +227,7 @@ private:
     QPushButton* surprise_button = nullptr;
     QLabel* console_emblem = nullptr;
     QLabel* brand_badge = nullptr;
+    QTimer* hero_timer = nullptr; // agrupa as atualizacoes do destaque ao navegar rapido
     QFrame* coin_pill = nullptr;
     QLabel* coin_label = nullptr;
     ListHeader* list_header = nullptr;

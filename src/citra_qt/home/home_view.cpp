@@ -12,6 +12,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QCache>
 #include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QLabel>
@@ -829,7 +830,13 @@ public:
         region = region_;
         real_cover = real_cover_;
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
-        base = AverageColor(icon, theme->accent_light);
+        const qint64 key = icon.isNull() ? 0 : icon.cacheKey();
+        if (key != 0 && key == base_key) {
+            // mesma imagem: reaproveita a cor media ja calculada
+        } else {
+            base = AverageColor(icon, theme->accent_light);
+            base_key = key;
+        }
         animation->stop();
         animation->start();
         update();
@@ -897,6 +904,7 @@ private:
     QString initial;
     QColor base;
     QVariantAnimation* animation = nullptr;
+    qint64 base_key = 0;
     qreal fade = 1.0;
 };
 
@@ -1021,6 +1029,44 @@ public:
     }
 
 protected:
+    /// Desenha um jogo reaproveitando uma imagem ja pronta (capa, sombra, lombada e textos sao
+    /// caros). A imagem e feita uma vez no tamanho do selecionado e so escalada durante a
+    /// animacao, o que deixa a navegacao fluida.
+    void DrawTile(QPainter* p, const QRectF& rect, int i, bool selected) {
+        constexpr qreal kMargin = 36.0;
+        const GameInfo& game = GameAt(i);
+        const int side = std::max(8, qRound(Sel()));
+        const qreal dpr = devicePixelRatioF();
+        const QString key = QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10")
+                                .arg(game.path)
+                                .arg(selected)
+                                .arg(side)
+                                .arg(g_icon_style)
+                                .arg(game.icon.isNull() ? 0 : game.icon.cacheKey())
+                                .arg(game.favorite)
+                                .arg(view->theme.accent.rgb())
+                                .arg(game.product_id, game.region)
+                                .arg(dpr);
+        QPixmap* cached = tile_cache.object(key);
+        if (cached == nullptr) {
+            const int full = static_cast<int>(side + 2 * kMargin);
+            auto* pm = new QPixmap(QSize(full, full) * dpr);
+            pm->setDevicePixelRatio(dpr);
+            pm->fill(Qt::transparent);
+            {
+                QPainter tp(pm);
+                PaintTile(&tp, QRectF(kMargin, kMargin, side, side), game, view->theme, selected,
+                          side / kIconSize);
+            }
+            tile_cache.insert(key, pm);
+            cached = pm;
+        }
+        const qreal k = rect.width() / side;
+        const QRectF target(rect.left() - kMargin * k, rect.top() - kMargin * k,
+                            (side + 2 * kMargin) * k, (side + 2 * kMargin) * k);
+        p->drawPixmap(target, *cached, QRectF(QPointF(0, 0), QSizeF(cached->size())));
+    }
+
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
         p.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform |
@@ -1064,8 +1110,7 @@ protected:
                 continue;
             }
             p.setOpacity(opacity);
-            PaintTile(&p, rect, GameAt(i), view->theme, std::abs(i - position) < 0.5,
-                      rect.width() / kIconSize);
+            DrawTile(&p, rect, i, std::abs(i - position) < 0.5);
         }
         p.setOpacity(1.0);
 
@@ -1269,6 +1314,7 @@ private:
     HomeView* view;
     std::vector<int> rows;
     int current = 0;
+    QCache<QString, QPixmap> tile_cache{48};
     qreal position = 0.0;
     int wheel_accum = 0;
     QVariantAnimation* animation = nullptr;
@@ -2175,10 +2221,16 @@ void HomeView::BuildUi() {
     grid_layout->addWidget(empty_state, 1);
     empty_state->hide();
 
+    hero_timer = new QTimer(this);
+    hero_timer->setSingleShot(true);
+    hero_timer->setInterval(45);
+    connect(hero_timer, &QTimer::timeout, this, [this] { UpdateHero(); });
     connect(grid->selectionModel(), &QItemSelectionModel::currentChanged, this,
             [this](const QModelIndex&, const QModelIndex&) {
-                UpdateHero();
+                // O carrossel anima na hora; o destaque (textos, cor, icones) e atualizado em
+                // seguida, uma vez so, para a navegacao rapida nao engasgar.
                 carousel->Refresh(true);
+                hero_timer->start();
                 if (isVisible()) {
                     PlaySound(static_cast<int>(SoundBank::Sound::Move));
                 }
@@ -3056,6 +3108,9 @@ void HomeView::ShowContextMenuForCurrent(const QPoint& global_pos) {
 }
 
 void HomeView::UpdateHero() {
+    if (hero_timer != nullptr) {
+        hero_timer->stop();
+    }
     const GameInfo* game = CurrentGame();
     const qreal dpr = devicePixelRatioF();
     const bool has_game = game != nullptr;
