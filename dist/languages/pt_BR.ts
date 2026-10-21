@@ -4119,6 +4119,22 @@ Arraste os pontos para alterar a posição ou clique duas vezes nas células da 
         <source>&lt;System&gt;</source>
         <translation>&lt;Sistema&gt;</translation>
     </message>
+    <message>
+        <source>Controller button icons</source>
+        <translation>Ícones dos botões do controle</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automático</translation>
+    </message>
+    <message>
+        <source>Xbox (A B X Y)</source>
+        <translation>Xbox (A B X Y)</translation>
+    </message>
+    <message>
+        <source>PlayStation</source>
+        <translation>PlayStation</translation>
+    </message>
 </context>
 <context>
     <name>ConfigureWeb</name>

@@ -453,6 +453,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
                                   prefs.value(QStringLiteral("view/quick"), 0).toInt());
     }
     home_view->SetSoundOptions(HomeSoundsPath(), UISettings::values.home_sounds.GetValue());
+    home_view->SetPadStyle(UISettings::values.home_pad_style.GetValue());
     cover_fetcher = new Home::CoverFetcher(
         QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)) +
             QStringLiteral("covers_auto"),
@@ -528,6 +529,7 @@ void GameList::ApplyHomeSettings() {
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     home_view->SetSoundOptions(HomeSoundsPath(), UISettings::values.home_sounds.GetValue());
+    home_view->SetPadStyle(UISettings::values.home_pad_style.GetValue());
     const bool use_home = UISettings::values.game_list_use_home_view.GetValue();
     if (use_home != home_mode) {
         SetHomeMode(use_home);

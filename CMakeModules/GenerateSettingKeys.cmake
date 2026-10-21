@@ -251,6 +251,7 @@ if (ENABLE_QT)
         "homeAutoCovers"
         "consoleMode"
         "homeSounds"
+        "homePadStyle"
         "show_compat_column"
         "show_region_column"
         "show_type_column"

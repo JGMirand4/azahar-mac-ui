@@ -115,15 +115,31 @@ QPixmap MakeGlyph(Glyph glyph, const QColor& color, int size, qreal dpr, bool fi
 
     switch (glyph) {
     case Glyph::Gear: {
-        p.setBrush(Qt::NoBrush);
-        p.drawEllipse(QPointF(12, 12), 6.2, 6.2);
-        p.drawEllipse(QPointF(12, 12), 2.5, 2.5);
-        p.setPen(QPen(color, 3.2, Qt::SolidLine, Qt::RoundCap));
-        for (int i = 0; i < 8; ++i) {
-            const qreal angle = i * M_PI / 4.0;
-            p.drawLine(QPointF(12 + 8.9 * std::cos(angle), 12 + 8.9 * std::sin(angle)),
-                       QPointF(12 + 10.6 * std::cos(angle), 12 + 10.6 * std::sin(angle)));
+        // Engrenagem de 8 dentes: contorno unico com furo no centro.
+        QPainterPath cog;
+        constexpr int kTeeth = 8;
+        constexpr qreal kPi = 3.14159265358979323846;
+        for (int i = 0; i < kTeeth; ++i) {
+            const qreal base = i * 2 * kPi / kTeeth;
+            const qreal half_root = 0.20 * 2 * kPi / kTeeth * 1.7;
+            const qreal half_tip = 0.20 * 2 * kPi / kTeeth * 1.1;
+            const qreal angles[4] = {base - half_root, base - half_tip, base + half_tip,
+                                     base + half_root};
+            const qreal radii[4] = {7.4, 10.0, 10.0, 7.4};
+            for (int k = 0; k < 4; ++k) {
+                const QPointF point(12 + radii[k] * std::cos(angles[k]),
+                                    12 + radii[k] * std::sin(angles[k]));
+                if (i == 0 && k == 0) {
+                    cog.moveTo(point);
+                } else {
+                    cog.lineTo(point);
+                }
+            }
         }
+        cog.closeSubpath();
+        p.setBrush(Qt::NoBrush);
+        p.drawPath(cog);
+        p.drawEllipse(QPointF(12, 12), 3.0, 3.0);
         break;
     }
     case Glyph::Star:
@@ -390,7 +406,7 @@ protected:
                 QPainter t(&tile);
                 t.setRenderHint(QPainter::Antialiasing);
                 QColor dot = theme->accent;
-                dot.setAlpha(30);
+                dot.setAlpha(20);
                 t.setPen(Qt::NoPen);
                 t.setBrush(dot);
                 t.drawEllipse(QPointF(9, 9), 1.4, 1.4);
@@ -658,6 +674,7 @@ class CarouselWidget : public QWidget {
 public:
     CarouselWidget(HomeView* view_, QWidget* parent) : QWidget(parent), view(view_) {
         setFocusPolicy(Qt::StrongFocus);
+        setMouseTracking(true);
         setMinimumHeight(static_cast<int>(kSelectedBase * 0.55 + kTop + 128));
         animation = new QVariantAnimation(this);
         animation->setDuration(340);
@@ -733,6 +750,12 @@ protected:
             }
             // O selecionado "sobe" um pouco em relacao aos vizinhos.
             rect.translate(0, -12.0 * std::max(0.0, 1.0 - std::abs(i - position)));
+            // As capas das pontas esmaecem em vez de serem cortadas pela borda do painel.
+            const qreal edge = std::min(rect.center().x(), width() - rect.center().x());
+            opacity *= std::clamp(edge / 110.0, 0.0, 1.0);
+            if (opacity <= 0.01) {
+                continue;
+            }
             p.setOpacity(opacity);
             PaintTile(&p, rect, GameAt(i), view->theme, std::abs(i - position) < 0.5,
                       rect.width() / kIconSize);
@@ -774,6 +797,11 @@ protected:
                                      track.height()),
                               2, 2);
         }
+    }
+
+    void mouseMoveEvent(QMouseEvent* event) override {
+        setCursor(HitTest(event->position()) >= 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        QWidget::mouseMoveEvent(event);
     }
 
     void mousePressEvent(QMouseEvent* event) override {
@@ -940,6 +968,52 @@ private:
 };
 
 /// Barra de dicas de controle no rodape, como nos consoles: teclas e o que cada uma faz.
+/// Botao de controle redondo. `id`: 0 = baixo (confirmar), 1 = direita (voltar), 2 = esquerda,
+/// 3 = cima. PlayStation: circulo branco com o simbolo colorido; Xbox: circulo colorido com a letra.
+static QPixmap MakePadBadge(bool playstation, int id, int size, qreal dpr) {
+    QPixmap pixmap(QSize(size, size) * dpr);
+    pixmap.setDevicePixelRatio(dpr);
+    pixmap.fill(Qt::transparent);
+    QPainter p(&pixmap);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.scale(size / 24.0, size / 24.0);
+    if (playstation) {
+        static const QColor kColors[4] = {QColor(0x4F, 0x7C, 0xF0), QColor(0xE8, 0x55, 0x55),
+                                          QColor(0xD9, 0x6F, 0xB4), QColor(0x2F, 0xAE, 0x7A)};
+        p.setPen(QPen(QColor(31, 42, 55, 46), 1.0));
+        p.setBrush(Qt::white);
+        p.drawEllipse(QRectF(0.8, 0.8, 22.4, 22.4));
+        p.setPen(QPen(kColors[id], 2.1, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.setBrush(Qt::NoBrush);
+        switch (id) {
+        case 0:
+            p.drawLine(QPointF(8, 8), QPointF(16, 16));
+            p.drawLine(QPointF(16, 8), QPointF(8, 16));
+            break;
+        case 1:
+            p.drawEllipse(QPointF(12, 12), 4.8, 4.8);
+            break;
+        case 2:
+            p.drawRoundedRect(QRectF(7.6, 7.6, 8.8, 8.8), 1.2, 1.2);
+            break;
+        default:
+            p.drawPolygon(QPolygonF({QPointF(12, 6.4), QPointF(17.6, 16.2), QPointF(6.4, 16.2)}));
+            break;
+        }
+    } else {
+        static const QColor kColors[4] = {QColor(0x3F, 0xA9, 0x4B), QColor(0xE0, 0x4B, 0x43),
+                                          QColor(0x3F, 0x7F, 0xE0), QColor(0xE8, 0xA8, 0x0C)};
+        static const char kLetters[4] = {'A', 'B', 'X', 'Y'};
+        p.setPen(Qt::NoPen);
+        p.setBrush(kColors[id]);
+        p.drawEllipse(QRectF(0.8, 0.8, 22.4, 22.4));
+        p.setPen(Qt::white);
+        p.setFont(RoundedFont(13, QFont::Bold));
+        p.drawText(QRectF(0, 0, 24, 24), Qt::AlignCenter, QString(QLatin1Char(kLetters[id])));
+    }
+    return pixmap;
+}
+
 /// Titulos das colunas da lista; usa a mesma conta de posicoes que `CardDelegate::PaintRow`.
 class ListHeader : public QWidget {
 public:
@@ -979,11 +1053,16 @@ protected:
         constexpr int kGapInside = 8;
         constexpr int kGapBetween = 24;
 
+        // Dicas com "@" viram o botao redondo do controle: "@p0" = PlayStation, "@x0" = Xbox.
+        const auto key_width_of = [&](const QString& key) {
+            return key.startsWith(QLatin1Char('@')) ? 24
+                                                    : std::max(28, key_metrics.horizontalAdvance(key) + 16);
+        };
         const auto measure = [&](const QList<QPair<QString, QString>>& list) {
             int sum = 0;
             for (const auto& hint : list) {
-                sum += std::max(28, key_metrics.horizontalAdvance(hint.first) + 16) +
-                       kGapInside + label_metrics.horizontalAdvance(hint.second) + kGapBetween;
+                sum += key_width_of(hint.first) + kGapInside +
+                       label_metrics.horizontalAdvance(hint.second) + kGapBetween;
             }
             return sum - kGapBetween;
         };
@@ -996,17 +1075,23 @@ protected:
         int x = std::max(0, (width() - total) / 2);
         const int cy = height() / 2;
         for (const auto& hint : shown) {
-            const int key_width = std::max(28, key_metrics.horizontalAdvance(hint.first) + 16);
+            const int key_width = key_width_of(hint.first);
             const QRectF cap(x, cy - kKeyHeight / 2.0, key_width, kKeyHeight);
-            // Tecla: base mais escura embaixo para dar relevo.
-            p.setPen(Qt::NoPen);
-            p.setBrush(QColor(0, 0, 0, 40));
-            p.drawRoundedRect(cap.adjusted(0, 2, 0, 2), 7, 7);
-            p.setBrush(QColor(0xFF, 0xFF, 0xFF));
-            p.drawRoundedRect(cap, 7, 7);
-            p.setFont(key_font);
-            p.setPen(QColor(0x2B, 0x36, 0x44));
-            p.drawText(cap, Qt::AlignCenter, hint.first);
+            if (hint.first.startsWith(QLatin1Char('@'))) {
+                p.drawPixmap(QPointF(x, cy - 12), MakePadBadge(hint.first[1] == QLatin1Char('p'),
+                                                                 hint.first[2].digitValue(), 24,
+                                                                 devicePixelRatioF()));
+            } else {
+                // Tecla: base mais escura embaixo para dar relevo.
+                p.setPen(Qt::NoPen);
+                p.setBrush(QColor(0, 0, 0, 40));
+                p.drawRoundedRect(cap.adjusted(0, 2, 0, 2), 7, 7);
+                p.setBrush(QColor(0xFF, 0xFF, 0xFF));
+                p.drawRoundedRect(cap, 7, 7);
+                p.setFont(key_font);
+                p.setPen(QColor(0x2B, 0x36, 0x44));
+                p.drawText(cap, Qt::AlignCenter, hint.first);
+            }
             x += key_width + kGapInside;
             p.setFont(label_font);
             p.setPen(theme->on_bg);
@@ -1606,6 +1691,7 @@ void HomeView::BuildUi() {
     sort_button = new QPushButton(grid_panel);
     sort_button->setObjectName(QStringLiteral("sortPill"));
     sort_button->setCursor(Qt::PointingHandCursor);
+    sort_button->setFont(BodyFont(13, QFont::DemiBold));
     sort_button->setToolTip(tr("Sort") + QStringLiteral("  \u2022  Select"));
     sort_button->setIcon(MakeIcon(Glyph::Sort, theme.ink, 16, dpr));
     sort_button->setIconSize(QSize(16, 16));
@@ -1732,8 +1818,12 @@ void HomeView::BuildUi() {
     auto* empty_layout = new QVBoxLayout(empty_state);
     empty_layout->setAlignment(Qt::AlignCenter);
     empty_layout->setSpacing(14);
+    empty_icon = new QLabel(empty_state);
+    empty_icon->setAlignment(Qt::AlignCenter);
+    empty_layout->addWidget(empty_icon);
     empty_label = new QLabel(empty_state);
     empty_label->setObjectName(QStringLiteral("emptyLabel"));
+    empty_label->setTextFormat(Qt::RichText);
     empty_label->setFont(RoundedFont(20, QFont::Bold));
     empty_label->setAlignment(Qt::AlignCenter);
     empty_label->setWordWrap(true);
@@ -1986,8 +2076,20 @@ void HomeView::UpdateEmptyState(int visible) {
     UpdateHeroSize();
     if (empty) {
         const bool no_games = games.empty();
-        empty_label->setText(no_games ? tr("No games yet.\nAdd the folder where your games are.")
-                                      : tr("No games match your search."));
+        const QString text = no_games ? tr("No games yet.\nAdd the folder where your games are.")
+                                      : tr("No games match your search.");
+        const QStringList lines = text.split(QLatin1Char('\n'));
+        QString html = QStringLiteral("<div style='font-size:24px; font-weight:700;'>%1</div>")
+                           .arg(lines.value(0).toHtmlEscaped());
+        if (lines.size() > 1) {
+            html += QStringLiteral("<div style='font-size:15px; font-weight:500; color:%1;'>%2</div>")
+                        .arg(theme.text_muted.name(), lines.value(1).toHtmlEscaped());
+        }
+        empty_label->setText(html);
+        QColor icon_color = theme.text_muted;
+        icon_color.setAlphaF(0.55);
+        const qreal dpr = devicePixelRatioF();
+        empty_icon->setPixmap(MakeGlyph(no_games ? Glyph::Folder : Glyph::Search, icon_color, 72, dpr));
         empty_add_button->setVisible(no_games);
     }
 }
@@ -2238,16 +2340,51 @@ void HomeView::FocusActiveView() {
     }
 }
 
+bool HomeView::UsePlaystationIcons() const {
+    return pad_style == 2 || (pad_style == 0 && pad_layout == 1);
+}
+
+void HomeView::SetPadStyle(int style) {
+    pad_style = std::clamp(style, 0, 2);
+    UpdateHints();
+}
+
+/// O icone do Play acompanha o que o jogador usa: botao do controle ou um triangulo de "play".
+void HomeView::UpdatePlayIcon() {
+    const qreal dpr = devicePixelRatioF();
+    constexpr int kBadge = 32;
+    constexpr int kGap = 12; // espaco entre o icone e a palavra "Play"
+    QPixmap icon(QSize(kBadge + kGap, kBadge) * dpr);
+    icon.setDevicePixelRatio(dpr);
+    icon.fill(Qt::transparent);
+    QPainter p(&icon);
+    p.setRenderHint(QPainter::Antialiasing);
+    if (pad_hints) {
+        p.drawPixmap(0, 0, MakePadBadge(UsePlaystationIcons(), 0, kBadge, dpr));
+    } else {
+        p.setPen(Qt::NoPen);
+        p.setBrush(Qt::white);
+        p.drawEllipse(QRectF(0, 0, kBadge, kBadge));
+        p.setBrush(theme.accent);
+        p.drawPolygon(QPolygonF({QPointF(12.5, 9.5), QPointF(12.5, 22.5), QPointF(23, 16)}));
+    }
+    p.end();
+    play_button->setIcon(QIcon(icon));
+    play_button->setIconSize(QSize(kBadge + kGap, kBadge));
+}
+
 void HomeView::UpdateHints() {
+    UpdatePlayIcon();
     QList<QPair<QString, QString>> list;
     if (pad_hints) {
-        // Botoes do controle (PlayStation usa simbolos; os demais usam letras).
-        const bool ps = pad_layout == 1;
+        // Botoes do controle: simbolos coloridos (PlayStation) ou letras (Xbox).
+        const bool ps = UsePlaystationIcons();
+        const QString kind = ps ? QStringLiteral("@p") : QStringLiteral("@x");
         list.append({tr("D-Pad"), tr("Navigate")});
-        list.append({ps ? QStringLiteral("\u2715") : QStringLiteral("A"), tr("Play")});
-        list.append({ps ? QStringLiteral("\u25CB") : QStringLiteral("B"), tr("Home")});
-        list.append({ps ? QStringLiteral("\u25A1") : QStringLiteral("X"), tr("Favorite")});
-        list.append({ps ? QStringLiteral("\u25B3") : QStringLiteral("Y"), tr("Random")});
+        list.append({kind + QLatin1Char('0'), tr("Play")});
+        list.append({kind + QLatin1Char('1'), tr("Home")});
+        list.append({kind + QLatin1Char('2'), tr("Favorite")});
+        list.append({kind + QLatin1Char('3'), tr("Random")});
         list.append({ps ? QStringLiteral("L1  R1") : QStringLiteral("L  R"), tr("Filter")});
         list.append({ps ? QStringLiteral("L2  R2") : QStringLiteral("LT  RT"), tr("View")});
         list.append({ps ? tr("Create") : tr("Select"), tr("Sort")});
@@ -2674,7 +2811,7 @@ void HomeView::UpdateHeroSize() {
     // Em janelas baixas ele fica compacto: so titulo e botoes (o carrossel encolhe sozinho).
     // Grade e lista escondem o destaque em janelas muito baixas; biblioteca e lista vazia tambem.
     const bool was_compact = compact;
-    compact = height() < (view_mode == 0 ? 900 : 1000);
+    compact = height() < 1000;
     const int hero_height =
         compact ? 168 : std::clamp(static_cast<int>(height() * 0.29), 232, 300);
     hero_panel->setFixedHeight(hero_height + kShadowTop + kShadowBottom);

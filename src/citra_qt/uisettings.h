@@ -125,6 +125,8 @@ struct Values {
     Settings::Setting<bool> console_mode{false, Settings::Keys::consoleMode};
     // Sons curtos de navegacao na tela inicial.
     Settings::Setting<bool> home_sounds{true, Settings::Keys::homeSounds};
+    // Icones dos botoes do controle na tela inicial: 0 = automatico, 1 = Xbox, 2 = PlayStation.
+    Settings::Setting<int> home_pad_style{0, Settings::Keys::homePadStyle};
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

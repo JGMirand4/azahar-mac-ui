@@ -91,6 +91,8 @@ public:
     void SetViewMode(int mode);
     /// Pasta dos sons gerados e se eles estao ligados.
     void SetSoundOptions(const QString& dir, bool enabled);
+    /// Icones dos botoes do controle: 0 = automatico, 1 = Xbox, 2 = PlayStation.
+    void SetPadStyle(int style);
     /// Reflete no botao do topo se o modo console esta ativo.
     void SetConsoleMode(bool enabled);
     /// Um botao do controle foi apertado (valores de GamepadNav::Button).
@@ -224,6 +226,9 @@ private:
     QWidget* grid_panel_widget = nullptr;
     QVariantAnimation* tint_anim = nullptr;
     QColor tint_now;
+    bool UsePlaystationIcons() const;
+    void UpdatePlayIcon();
+    int pad_style = 0; // 0 = automatico, 1 = Xbox, 2 = PlayStation
     void UpdateTint();
     void ApplyTint();
     void CycleSort();
@@ -231,6 +236,7 @@ private:
     QLabel* grid_title = nullptr;
     QWidget* empty_state = nullptr;
     QLabel* empty_label = nullptr;
+    QLabel* empty_icon = nullptr;
     QPushButton* empty_add_button = nullptr;
     void UpdateEmptyState(int visible);
     QPushButton* sort_button = nullptr;

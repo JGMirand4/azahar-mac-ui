@@ -207,6 +207,49 @@
          </widget>
         </item>
         <item>
+         <layout class="QHBoxLayout" name="pad_style_layout">
+          <item>
+           <widget class="QLabel" name="pad_style_label">
+            <property name="text">
+             <string>Controller button icons</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="pad_style_combobox">
+            <item>
+             <property name="text">
+              <string>Automatic</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Xbox (A B X Y)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>PlayStation</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item>
+           <spacer name="pad_style_spacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
          <widget class="QCheckBox" name="toggle_auto_covers">
           <property name="text">
            <string>Download game covers automatically</string>
