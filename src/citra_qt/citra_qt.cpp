@@ -1090,7 +1090,8 @@ void GMainWindow::ConnectWidgetEvents() {
     connect(game_list, &GameList::OpenSettingsRequested, this, &GMainWindow::OnConfigure);
     connect(game_list, &GameList::HomeModeChanged, ui->action_Show_Home_Screen,
             &QAction::setChecked);
-    connect(ui->action_Show_Home_Screen, &QAction::triggered, game_list, &GameList::SetHomeMode);
+    connect(ui->action_Show_Home_Screen, &QAction::triggered, game_list,
+            [this](bool checked) { game_list->SetHomeMode(checked); });
     connect(game_list, &GameList::OpenDirectory, this, &GMainWindow::OnGameListOpenDirectory);
     connect(game_list, &GameList::OpenFolderRequested, this, &GMainWindow::OnGameListOpenFolder);
     connect(game_list, &GameList::RemovePlayTimeRequested, this,
