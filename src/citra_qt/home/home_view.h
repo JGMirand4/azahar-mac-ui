@@ -21,6 +21,9 @@ class QVBoxLayout;
 
 namespace Home {
 
+class CarouselWidget;
+class HintBar;
+
 class BatteryWidget;
 class HeroArt;
 
@@ -78,10 +81,11 @@ public:
     void TakeSearchWidget();
     void SetSortMode(SortMode mode);
     /// Alterna entre a grade de capas e a lista detalhada (continua dentro da tela inicial).
-    void SetListMode(bool enabled);
+    /// 0 = carrossel (estilo HOME), 1 = grade, 2 = lista detalhada.
+    void SetViewMode(int mode);
     /// Preferencias de exibicao (salvas pelo GameList entre execucoes).
-    bool IsListMode() const {
-        return list_mode;
+    int GetViewMode() const {
+        return view_mode;
     }
     int GetSortMode() const {
         return static_cast<int>(sort_mode);
@@ -89,7 +93,7 @@ public:
     int GetQuickFilter() const {
         return quick_filter;
     }
-    void SetPreferences(bool list, int sort, int quick);
+    void SetPreferences(int mode, int sort, int quick);
 
     /// Troca a cor de destaque e deriva o restante da paleta.
     void SetAccentColor(const QColor& accent);
@@ -118,10 +122,13 @@ signals:
 protected:
     void paintEvent(QPaintEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
 private:
     friend class CardDelegate;
+    friend class CarouselWidget;
 
     void BuildUi();
     void RebuildStyleSheet();
@@ -131,6 +138,10 @@ private:
     void UpdateClock();
     void ApplySort();
     void UpdateGridMetrics();
+    void ApplyViewMode();
+    void UpdateHints();
+    void FocusActiveView();
+    bool HandleShortcut(QKeyEvent* event);
     void SetQuickFilter(int mode);
     void UpdateQuickCounts();
     void PickRandomGame();
@@ -145,10 +156,14 @@ private:
     SortMode sort_mode = SortMode::Recent;
     bool compact = false;
     bool library_mode = false;
-    bool list_mode = false;
+    bool list_mode = false; // derivado: view_mode == 2
+    int view_mode = 0;
+    int visible_count = 0;
+    bool library_switched = false;
+    CarouselWidget* carousel = nullptr;
+    HintBar* hints = nullptr;
+    QPushButton* mode_buttons[3] = {nullptr, nullptr, nullptr};
     int quick_filter = 0; // 0 = todos, 1 = favoritos, 2 = ja jogados
-    QPushButton* grid_mode_button = nullptr;
-    QPushButton* list_mode_button = nullptr;
     QString filter_text;
 
     QStandardItemModel* model = nullptr;

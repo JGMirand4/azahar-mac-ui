@@ -7944,6 +7944,22 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Jogados recentemente</translation>
     </message>
     <message>
+        <source>Carousel view</source>
+        <translation>Modo carrossel</translation>
+    </message>
+    <message>
+        <source>Navigate</source>
+        <translation>Navegar</translation>
+    </message>
+    <message>
+        <source>Filter</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>Aleatório</translation>
+    </message>
+    <message>
         <source>Surprise me</source>
         <translation>Surpreenda-me</translation>
     </message>

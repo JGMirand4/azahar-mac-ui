@@ -443,7 +443,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     {
         // Lembra o modo (grade/lista), a ordem e o filtro rapido entre execucoes.
         const QSettings prefs(HomeStatePath(), QSettings::IniFormat);
-        home_view->SetPreferences(prefs.value(QStringLiteral("view/list"), false).toBool(),
+        home_view->SetPreferences(prefs.value(QStringLiteral("view/mode"), 0).toInt(),
                                   prefs.value(QStringLiteral("view/sort"), 0).toInt(),
                                   prefs.value(QStringLiteral("view/quick"), 0).toInt());
     }
@@ -460,7 +460,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
             [this] { cover_refresh_timer->start(); });
     connect(home_view, &Home::HomeView::PreferencesChanged, this, [this] {
         QSettings prefs(HomeStatePath(), QSettings::IniFormat);
-        prefs.setValue(QStringLiteral("view/list"), home_view->IsListMode());
+        prefs.setValue(QStringLiteral("view/mode"), home_view->GetViewMode());
         prefs.setValue(QStringLiteral("view/sort"), home_view->GetSortMode());
         prefs.setValue(QStringLiteral("view/quick"), home_view->GetQuickFilter());
         prefs.sync();
