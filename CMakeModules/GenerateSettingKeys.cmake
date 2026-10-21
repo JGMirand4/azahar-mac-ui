@@ -244,7 +244,7 @@ if (ENABLE_QT)
         "row2" # this suck ass.
         "hideNoIcon"
         "singleLineMode"
-        "useHomeView"
+        "useHomeScreen"
         "homeAccentColor"
         "show_compat_column"
         "show_region_column"

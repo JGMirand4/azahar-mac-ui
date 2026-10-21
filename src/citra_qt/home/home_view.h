@@ -5,6 +5,7 @@
 #pragma once
 
 #include <vector>
+#include <QLocale>
 #include <QPixmap>
 #include <QString>
 #include <QWidget>
@@ -83,6 +84,9 @@ public:
 
     void FocusGrid();
 
+    /// Idioma usado na data e na hora do topo.
+    void SetLocale(const QLocale& locale);
+
 signals:
     void GameActivated(const QString& path);
     void GameContextMenuRequested(const Home::GameInfo& info, const QPoint& global_pos);
@@ -110,6 +114,7 @@ private:
     QString SortModeText() const;
 
     Theme theme;
+    QLocale ui_locale = QLocale::system();
     std::vector<GameInfo> games;
     SortMode sort_mode = SortMode::Name;
     bool compact = false;

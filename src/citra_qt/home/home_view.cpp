@@ -948,7 +948,11 @@ void HomeView::BuildUi() {
             }
         }
     });
-    connect(dock_library, &QPushButton::clicked, this, [this] { emit ClassicViewRequested(); });
+    connect(dock_library, &QPushButton::clicked, this, [this] {
+        dock_library->setChecked(false);
+        dock_home->setChecked(true);
+        FocusGrid();
+    });
     connect(dock_search, &QPushButton::clicked, this, [this] { emit SearchRequested(); });
     connect(dock_folders, &QPushButton::clicked, this, [this] { emit AddFolderRequested(); });
     connect(settings_button, &QPushButton::clicked, this, [this] { emit SettingsRequested(); });
@@ -1276,8 +1280,15 @@ void HomeView::UpdateHero() {
     hero_art->SetGame(game->icon, game->title);
 }
 
+void HomeView::SetLocale(const QLocale& locale) {
+    ui_locale = locale;
+    if (date_label != nullptr) {
+        UpdateClock();
+    }
+}
+
 void HomeView::UpdateClock() {
-    const QLocale locale = QLocale::system();
+    const QLocale& locale = ui_locale;
     QString date = locale.toString(QDate::currentDate(), QStringLiteral("ddd, d MMM"));
     if (!date.isEmpty()) {
         date[0] = date[0].toUpper();

@@ -17,6 +17,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QModelIndex>
@@ -394,6 +395,9 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     layout->setSpacing(0);
 
     home_view = new Home::HomeView(this);
+    home_view->SetLocale(UISettings::values.language.isEmpty()
+                             ? QLocale::system()
+                             : QLocale(UISettings::values.language));
     home_view->SetAccentColor(QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     connect(home_view, &Home::HomeView::GameActivated, this, &GameList::OnHomeGameActivated);
     connect(home_view, &Home::HomeView::GameContextMenuRequested, this,
@@ -406,7 +410,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     connect(home_view, &Home::HomeView::SearchRequested, this,
             [this] { main_window->filterBarSetChecked(true); });
     connect(home_view, &Home::HomeView::ClassicViewRequested, this,
-            [this] { SetHomeMode(false); });
+            [this] { SetHomeMode(false, false); }); // so nesta sessao
 
     layout->addWidget(home_view);
     layout->addWidget(tree_view);
@@ -416,7 +420,7 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     SetHomeMode(UISettings::values.game_list_use_home_view.GetValue());
 }
 
-void GameList::SetHomeMode(bool enable) {
+void GameList::SetHomeMode(bool enable, bool persist) {
     home_mode = enable;
     home_view->setVisible(enable);
     tree_view->setVisible(!enable);
@@ -431,11 +435,16 @@ void GameList::SetHomeMode(bool enable) {
         layout->addWidget(search_field);
         search_field->setVisible(filter_bar_visible);
     }
-    UISettings::values.game_list_use_home_view.SetValue(enable);
+    if (persist) {
+        UISettings::values.game_list_use_home_view.SetValue(enable);
+    }
     emit HomeModeChanged(enable);
 }
 
 void GameList::ApplyHomeSettings() {
+    home_view->SetLocale(UISettings::values.language.isEmpty()
+                             ? QLocale::system()
+                             : QLocale(UISettings::values.language));
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
     const bool use_home = UISettings::values.game_list_use_home_view.GetValue();

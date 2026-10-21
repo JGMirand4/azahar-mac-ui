@@ -97,7 +97,7 @@ public:
     void RemoveFavorite(u64 program_id);
 
     /// Alterna entre a tela inicial estilo HOME e a lista classica.
-    void SetHomeMode(bool enable);
+    void SetHomeMode(bool enable, bool persist = true);
     /// Reaplica cor de destaque e modo de exibicao a partir das configuracoes.
     void ApplyHomeSettings();
     bool IsHomeMode() const {

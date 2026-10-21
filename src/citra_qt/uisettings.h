@@ -114,7 +114,7 @@ struct Values {
     Settings::Setting<bool> game_list_hide_no_icon{false, Settings::Keys::hideNoIcon};
     Settings::Setting<bool> game_list_single_line_mode{false, Settings::Keys::singleLineMode};
     // Tela inicial estilo HOME do 3DS (grade de cards) em vez da lista classica.
-    Settings::Setting<bool> game_list_use_home_view{true, Settings::Keys::useHomeView};
+    Settings::Setting<bool> game_list_use_home_view{true, Settings::Keys::useHomeScreen};
     Settings::Setting<std::string> home_accent_color{"#0F6FD0", Settings::Keys::homeAccentColor};
 
     // Compatibility List
