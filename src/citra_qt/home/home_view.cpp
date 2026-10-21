@@ -18,6 +18,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
+#include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QStandardItemModel>
 #include <QStyledItemDelegate>
@@ -198,35 +199,85 @@ QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool fille
     return QIcon(MakeGlyph(glyph, color, size, dpr, filled, fill_color));
 }
 
-/// Barra lateral classica das capas de jogos de 3DS: faixa azul na esquerda com o logotipo
-/// "NINTENDO 3DS" na vertical. Deve ser desenhada com o recorte arredondado da capa ativo.
+/// Barra lateral classica das capas de jogos de 3DS: faixa branca com o quadrado laranja da
+/// "Nintendo Network" no topo, o logotipo "NINTENDO 3DS" na vertical (lido de baixo para cima,
+/// com o "3" vermelho) e um filete preto na borda direita. Deve ser desenhada com o recorte
+/// arredondado da capa ativo.
 void DrawCaseSpine(QPainter* p, const QRectF& cover) {
-    const qreal width = std::max<qreal>(10.0, cover.width() * 0.15);
+    const qreal width = std::max<qreal>(10.0, cover.width() * 0.17);
     const QRectF strip(cover.left(), cover.top(), width, cover.height());
     p->save();
+    p->setRenderHint(QPainter::Antialiasing);
     p->setPen(Qt::NoPen);
-    QLinearGradient fill(strip.topLeft(), strip.topRight());
-    fill.setColorAt(0.0, QColor(0x0A, 0x86, 0xC8));
-    fill.setColorAt(0.5, QColor(0x14, 0xA3, 0xE6));
-    fill.setColorAt(1.0, QColor(0x0C, 0x8F, 0xD2));
-    p->setBrush(fill);
+    p->setBrush(QColor(0xFA, 0xFA, 0xFA));
     p->drawRect(strip);
-    // Friso claro na divisa com a arte, como o vinco da caixa.
-    p->setBrush(QColor(255, 255, 255, 190));
-    p->drawRect(QRectF(strip.right() - 1.0, strip.top(), 1.0, strip.height()));
-    p->setBrush(QColor(0, 0, 0, 40));
-    p->drawRect(QRectF(strip.right(), strip.top(), 1.5, strip.height()));
+    p->setBrush(QColor(0x1A, 0x1A, 0x1A));
+    p->drawRect(QRectF(strip.right() - std::max<qreal>(1.0, width * 0.07), strip.top(),
+                       std::max<qreal>(1.0, width * 0.07), strip.height()));
 
-    const qreal px = std::min<qreal>(width * 0.52, cover.height() * 0.075);
-    if (px >= 5.0) {
-        QFont font = BodyFont(static_cast<int>(px), QFont::Black);
-        font.setPixelSize(static_cast<int>(px));
-        p->setFont(font);
-        p->setPen(Qt::white);
-        p->translate(strip.center());
+    // Quadrado laranja com o "n" da Nintendo Network.
+    const qreal badge = width * 0.62;
+    const QRectF badge_rect(strip.left() + (width - badge) / 2 - width * 0.03,
+                            strip.top() + width * 0.18, badge, badge);
+    p->setBrush(QColor(0xE8, 0x7B, 0x2B));
+    p->drawRoundedRect(badge_rect, badge * 0.2, badge * 0.2);
+    if (badge >= 7.0) {
+        p->setBrush(Qt::NoBrush);
+        p->setPen(QPen(Qt::white, std::max<qreal>(0.8, badge * 0.11), Qt::SolidLine,
+                       Qt::RoundCap, Qt::RoundJoin));
+        QPainterPath n;
+        const QPointF o = badge_rect.topLeft();
+        const auto pt = [&](qreal x, qreal y) { return o + QPointF(x * badge, y * badge); };
+        n.moveTo(pt(0.30, 0.72));
+        n.lineTo(pt(0.30, 0.34));
+        n.cubicTo(pt(0.30, 0.26), pt(0.36, 0.24), pt(0.42, 0.30));
+        n.lineTo(pt(0.58, 0.50));
+        n.cubicTo(pt(0.64, 0.58), pt(0.70, 0.56), pt(0.70, 0.46));
+        n.lineTo(pt(0.70, 0.28));
+        p->drawPath(n);
+    }
+
+    // Logotipo na vertical, de baixo para cima.
+    const qreal top_limit = badge_rect.bottom() + width * 0.18;
+    const qreal available = strip.bottom() - width * 0.22 - top_limit;
+    if (width >= 12.0 && available > width * 2.0) {
+        qreal big = width * 0.66;
+        qreal small = width * 0.30;
+        const auto make = [](qreal px) {
+            QFont font = BodyFont(std::max(4, static_cast<int>(px)), QFont::Black);
+            font.setPixelSize(std::max(4, static_cast<int>(px)));
+            return font;
+        };
+        const auto total = [&](qreal b, qreal s) {
+            return QFontMetricsF(make(s)).horizontalAdvance(QStringLiteral("NINTENDO")) +
+                   b * 0.25 + QFontMetricsF(make(b)).horizontalAdvance(QStringLiteral("3DS"));
+        };
+        const qreal length = total(big, small);
+        if (length > available) {
+            const qreal k = available / length;
+            big *= k;
+            small *= k;
+        }
+        p->translate(strip.left() + width * 0.5 - width * 0.03, strip.bottom() - width * 0.22);
         p->rotate(-90);
-        const QRectF text(-cover.height() / 2, -width / 2, cover.height(), width);
-        p->drawText(text, Qt::AlignCenter, QStringLiteral("NINTENDO 3DS"));
+        const QFont small_font = make(small);
+        const QFont big_font = make(big);
+        const QFontMetricsF small_metrics(small_font);
+        const QFontMetricsF big_metrics(big_font);
+        p->setFont(small_font);
+        p->setPen(QColor(0x1A, 0x1A, 0x1A));
+        p->drawText(QPointF(0, small_metrics.ascent() / 2 - small_metrics.descent() / 2 +
+                                   small_metrics.descent() * 0.2),
+                    QStringLiteral("NINTENDO"));
+        qreal x = small_metrics.horizontalAdvance(QStringLiteral("NINTENDO")) + big * 0.25;
+        const qreal baseline = big_metrics.ascent() / 2 - big_metrics.descent() / 2 +
+                               big_metrics.descent() * 0.2;
+        p->setFont(big_font);
+        p->setPen(QColor(0xE4, 0x1E, 0x26));
+        p->drawText(QPointF(x, baseline), QStringLiteral("3"));
+        x += big_metrics.horizontalAdvance(QStringLiteral("3"));
+        p->setPen(QColor(0x1A, 0x1A, 0x1A));
+        p->drawText(QPointF(x, baseline), QStringLiteral("DS"));
     }
     p->restore();
 }
@@ -276,6 +327,14 @@ protected:
         QLinearGradient glass(body.topLeft(), body.bottomLeft());
         glass.setColorAt(0.0, QColor(255, 255, 255, 248));
         glass.setColorAt(1.0, QColor(250, 252, 255, 244));
+        const QColor tint = property("tint").value<QColor>();
+        if (tint.isValid()) {
+            // Destaque: a cor da capa tinge suavemente o lado esquerdo do painel.
+            glass = QLinearGradient(body.topLeft(), body.topRight());
+            glass.setColorAt(0.0, Theme::Mix(QColor(255, 255, 255), tint, 0.24f));
+            glass.setColorAt(0.55, Theme::Mix(QColor(255, 255, 255), tint, 0.07f));
+            glass.setColorAt(1.0, QColor(252, 253, 255));
+        }
         p.setPen(Qt::NoPen);
         p.setBrush(glass);
         p.drawPath(body_path);
@@ -307,32 +366,6 @@ private:
     const Theme* theme;
     qreal radius;
     bool dotted;
-};
-
-/// Logo do app na barra superior.
-class LogoWidget : public QWidget {
-public:
-    explicit LogoWidget(QWidget* parent = nullptr) : QWidget(parent) {
-        setFixedSize(52, 52);
-    }
-
-    void SetPixmap(const QPixmap& pixmap_) {
-        pixmap = pixmap_;
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent*) override {
-        if (pixmap.isNull()) {
-            return;
-        }
-        QPainter p(this);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
-        p.drawPixmap(rect(), pixmap);
-    }
-
-private:
-    QPixmap pixmap;
 };
 
 /// Indicador de bateria desenhado a mao.
@@ -420,6 +453,10 @@ public:
         });
     }
 
+    QColor Base() const {
+        return base;
+    }
+
     void SetGame(const QPixmap& icon_, const QString& title, bool = false) {
         icon = icon_;
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
@@ -433,32 +470,18 @@ protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
         p.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
-        const QRectF r = QRectF(rect()).adjusted(0, 14, -14, -14);
+        const QRectF r = QRectF(rect()).adjusted(0, 14, 0, -14);
         if (r.width() < 40 || r.height() < 40) {
             return;
         }
-        QPainterPath clip;
-        clip.addRoundedRect(r, 22, 22);
-        p.setClipPath(clip);
 
-        // Fundo: uma cor lisa derivada da capa. Nada de arte esticada ou borrada.
-        QLinearGradient bg(r.topLeft(), r.bottomRight());
-        bg.setColorAt(0.0, Theme::Mix(base, Qt::white, 0.90f));
-        bg.setColorAt(1.0, Theme::Mix(base, Qt::white, 0.72f));
-        p.fillRect(r, bg);
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(255, 255, 255, 70));
-        p.drawEllipse(QPointF(r.right() - r.width() * 0.12, r.top() + r.height() * 0.12),
-                      r.height() * 0.55, r.height() * 0.55);
-        p.setBrush(QColor(255, 255, 255, 45));
-        p.drawEllipse(QPointF(r.left() + r.width() * 0.1, r.bottom()), r.height() * 0.45,
-                      r.height() * 0.45);
 
         // Capa em tamanho normal, quadrada, no centro.
-        const qreal size = std::min<qreal>(r.height() * 0.66, 176.0) * (0.92 + 0.08 * fade);
+        const qreal size = std::min<qreal>(r.height() * 0.82, 196.0) * (0.92 + 0.08 * fade);
         const QRectF icon_rect(r.center().x() - size / 2, r.center().y() - size / 2 - 4, size,
                                size);
-        const qreal radius = size * 0.2;
+        const qreal radius = size * 0.16;
         p.setOpacity(fade);
         for (int i = 0; i < 8; ++i) {
             QColor c = theme->shadow;
@@ -468,7 +491,7 @@ protected:
                               radius + i * 1.6, radius + i * 1.6);
         }
         p.setBrush(Qt::white);
-        p.drawRoundedRect(icon_rect.adjusted(-5, -5, 5, 5), radius + 5, radius + 5);
+        p.drawRoundedRect(icon_rect.adjusted(-4, -4, 4, 4), radius + 4, radius + 4);
 
         QPainterPath icon_clip;
         icon_clip.addRoundedRect(icon_rect, radius, radius);
@@ -765,8 +788,6 @@ void HomeView::BuildUi() {
     auto* brand_layout = new QHBoxLayout(brand);
     brand_layout->setContentsMargins(0, 0, 0, 0);
     brand_layout->setSpacing(12);
-    logo = new LogoWidget(brand);
-    logo->SetPixmap(QPixmap(QStringLiteral(":/icons/default/256x256/azahar.png")));
     auto* brand_text = new QVBoxLayout;
     brand_text->setSpacing(0);
     auto* app_name = new QLabel(tr("Azahar"), brand);
@@ -779,7 +800,6 @@ void HomeView::BuildUi() {
     app_tag->setFont(tag_font);
     brand_text->addWidget(app_name);
     brand_text->addWidget(app_tag);
-    brand_layout->addWidget(logo);
     brand_layout->addLayout(brand_text);
     top_layout->addWidget(brand, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
@@ -837,21 +857,34 @@ void HomeView::BuildUi() {
     // ---- Jogo em destaque ----
     auto* hero = new GlassPanel(&theme, 32, false, this);
     hero_panel = hero;
-    hero->setFixedHeight(300 + kShadowTop + kShadowBottom);
+    hero->setFixedHeight(280 + kShadowTop + kShadowBottom);
     auto* hero_layout = new QHBoxLayout(hero);
     hero_layout->setContentsMargins(GlassPanel::Padding(0, 0, 0, 0));
     hero_layout->setSpacing(0);
 
     auto* info = new QWidget(hero);
     auto* info_layout = new QVBoxLayout(info);
-    info_layout->setContentsMargins(40, 22, 16, 22);
-    info_layout->setSpacing(10);
+    info_layout->setContentsMargins(14, 24, 36, 24);
+    info_layout->setSpacing(8);
 
     hero_eyebrow = new QLabel(info);
     hero_eyebrow->setObjectName(QStringLiteral("heroEyebrow"));
     hero_eyebrow->setFont(BodyFont(12, QFont::Bold));
     info_layout->addWidget(hero_eyebrow);
 
+    hero_title = new QLabel(info);
+    hero_title->setObjectName(QStringLiteral("heroTitle"));
+    hero_title->setFont(RoundedFont(34, QFont::Bold));
+    hero_title->setWordWrap(true);
+    hero_title->setMaximumHeight(84);
+    info_layout->addWidget(hero_title);
+
+    hero_desc = new QLabel(info);
+    hero_desc->setObjectName(QStringLiteral("heroDesc"));
+    hero_desc->setFont(BodyFont(15, QFont::DemiBold));
+    hero_desc->setWordWrap(true);
+    hero_desc->setMaximumHeight(42);
+    info_layout->addWidget(hero_desc);
     auto* chips = new QHBoxLayout;
     chips->setSpacing(8);
     hero_compat = new QLabel(info);
@@ -866,21 +899,9 @@ void HomeView::BuildUi() {
         chips->addWidget(chip);
     }
     chips->addStretch(1);
+    info_layout->addSpacing(4);
     info_layout->addLayout(chips);
 
-    hero_title = new QLabel(info);
-    hero_title->setObjectName(QStringLiteral("heroTitle"));
-    hero_title->setFont(RoundedFont(32, QFont::Bold));
-    hero_title->setWordWrap(true);
-    hero_title->setMaximumHeight(84);
-    info_layout->addWidget(hero_title);
-
-    hero_desc = new QLabel(info);
-    hero_desc->setObjectName(QStringLiteral("heroDesc"));
-    hero_desc->setFont(BodyFont(15, QFont::DemiBold));
-    hero_desc->setWordWrap(true);
-    hero_desc->setMaximumHeight(42);
-    info_layout->addWidget(hero_desc);
     info_layout->addStretch(1);
 
     auto* actions = new QHBoxLayout;
@@ -947,8 +968,10 @@ void HomeView::BuildUi() {
     info_layout->addLayout(actions);
 
     hero_art = new HeroArt(&theme, hero);
-    hero_layout->addWidget(info, 46);
-    hero_layout->addWidget(hero_art, 54);
+    hero_art->setFixedWidth(272);
+    hero_layout->addSpacing(10);
+    hero_layout->addWidget(hero_art, 0);
+    hero_layout->addWidget(info, 1);
     root->addWidget(hero);
 
     // ---- Grade de jogos ----
@@ -966,27 +989,6 @@ void HomeView::BuildUi() {
     header->addWidget(grid_title, 0, Qt::AlignVCenter);
     header->addStretch(1);
 
-    // Filtros rapidos: Todos / Favoritos / Ja jogados.
-    auto* quick = new QFrame(grid_panel);
-    quick->setObjectName(QStringLiteral("segment"));
-    auto* quick_layout = new QHBoxLayout(quick);
-    quick_layout->setContentsMargins(3, 3, 3, 3);
-    quick_layout->setSpacing(2);
-    auto* quick_group = new QButtonGroup(this);
-    quick_group->setExclusive(true);
-    const QString quick_names[] = {tr("All"), tr("Favorites"), tr("Played")};
-    for (int i = 0; i < 3; ++i) {
-        auto* chip = new QPushButton(quick_names[i], quick);
-        chip->setObjectName(QStringLiteral("segText"));
-        chip->setCheckable(true);
-        chip->setChecked(i == 0);
-        chip->setCursor(Qt::PointingHandCursor);
-        chip->setFont(BodyFont(13, QFont::Bold));
-        quick_group->addButton(chip, i);
-        quick_layout->addWidget(chip);
-    }
-    connect(quick_group, &QButtonGroup::idClicked, this, [this](int id) { SetQuickFilter(id); });
-    header->addWidget(quick);
 
     sort_button = new QPushButton(grid_panel);
     sort_button->setObjectName(QStringLiteral("sortPill"));
@@ -996,7 +998,10 @@ void HomeView::BuildUi() {
     auto* sort_menu = new QMenu(sort_button);
     const auto add_sort = [this, sort_menu](const QString& text, SortMode mode) {
         QAction* action = sort_menu->addAction(text);
-        connect(action, &QAction::triggered, this, [this, mode] { SetSortMode(mode); });
+        connect(action, &QAction::triggered, this, [this, mode] {
+            SetSortMode(mode);
+            emit PreferencesChanged();
+        });
     };
     add_sort(tr("Recently played"), SortMode::Recent);
     add_sort(tr("Name"), SortMode::Name);
@@ -1037,13 +1042,48 @@ void HomeView::BuildUi() {
     mode_group->setExclusive(true);
     mode_group->addButton(grid_view_button);
     mode_group->addButton(list_view_button);
-    connect(grid_view_button, &QPushButton::clicked, this, [this] { SetListMode(false); });
+    connect(grid_view_button, &QPushButton::clicked, this, [this] {
+        SetListMode(false);
+        emit PreferencesChanged();
+    });
     list_view_button->setIconSize(QSize(16, 16));
-    connect(list_view_button, &QPushButton::clicked, this, [this] { SetListMode(true); });
+    connect(list_view_button, &QPushButton::clicked, this, [this] {
+        SetListMode(true);
+        emit PreferencesChanged();
+    });
     segment_layout->addWidget(grid_view_button);
     segment_layout->addWidget(list_view_button);
     header->addWidget(segment);
     grid_layout->addLayout(header);
+
+    // Filtros rapidos (Todos / Favoritos / Jogados) e o botao de jogo aleatorio.
+    auto* chip_row = new QHBoxLayout;
+    chip_row->setSpacing(8);
+    auto* quick_group = new QButtonGroup(this);
+    quick_group->setExclusive(true);
+    for (int i = 0; i < 3; ++i) {
+        auto* chip = new QPushButton(grid_panel);
+        chip->setObjectName(QStringLiteral("filterChip"));
+        chip->setCheckable(true);
+        chip->setChecked(i == 0);
+        chip->setCursor(Qt::PointingHandCursor);
+        chip->setFont(BodyFont(13, QFont::Bold));
+        quick_group->addButton(chip, i);
+        quick_buttons[i] = chip;
+        chip_row->addWidget(chip);
+    }
+    connect(quick_group, &QButtonGroup::idClicked, this, [this](int id) {
+        SetQuickFilter(id);
+        emit PreferencesChanged();
+    });
+    chip_row->addStretch(1);
+    auto* surprise = new QPushButton(tr("Surprise me"), grid_panel);
+    surprise->setObjectName(QStringLiteral("surpriseChip"));
+    surprise->setCursor(Qt::PointingHandCursor);
+    surprise->setFont(BodyFont(13, QFont::Bold));
+    connect(surprise, &QPushButton::clicked, this, [this] { PickRandomGame(); });
+    chip_row->addWidget(surprise);
+    grid_layout->addLayout(chip_row);
 
     model = new QStandardItemModel(this);
     grid = new QListView(grid_panel);
@@ -1234,16 +1274,25 @@ void HomeView::RebuildStyleSheet() {
     min-width: 34px; max-width: 34px; min-height: 32px; max-height: 32px;
 }
 #homeRoot QPushButton#segButton:checked { background: @accent@; }
-#homeRoot QPushButton#segText {
-    background: transparent;
-    border: none;
+#homeRoot QPushButton#filterChip {
+    background: #FFFFFF;
+    border: 1px solid rgba(31, 42, 55, 34);
     border-radius: 16px;
-    padding: 0px 14px;
+    padding: 0px 16px;
     min-height: 32px; max-height: 32px;
     color: @ink@;
 }
-#homeRoot QPushButton#segText:hover { background: #EEF3FA; }
-#homeRoot QPushButton#segText:checked { background: @accent@; color: #FFFFFF; }
+#homeRoot QPushButton#filterChip:hover { background: #EEF3FA; border-color: @accent@; }
+#homeRoot QPushButton#filterChip:checked { background: @accent@; border-color: @accent@; color: #FFFFFF; }
+#homeRoot QPushButton#surpriseChip {
+    background: transparent;
+    border: 1px dashed rgba(31, 42, 55, 60);
+    border-radius: 16px;
+    padding: 0px 16px;
+    min-height: 32px; max-height: 32px;
+    color: @accent@;
+}
+#homeRoot QPushButton#surpriseChip:hover { background: @accent@; border-style: solid; border-color: @accent@; color: #FFFFFF; }
 #homeRoot QPushButton#dockItem {
     background: transparent;
     border: none;
@@ -1312,6 +1361,7 @@ void HomeView::SetGames(std::vector<GameInfo> new_games) {
 void HomeView::RefreshModel() {
     const qulonglong current_id = CurrentGame() != nullptr ? CurrentGame()->program_id : 0;
 
+    UpdateQuickCounts();
     model->clear();
     for (int i = 0; i < static_cast<int>(games.size()); ++i) {
         const GameInfo& game = games[i];
@@ -1462,9 +1512,48 @@ void HomeView::SetFavorite(qulonglong program_id, bool favorite) {
             game.favorite = favorite;
         }
     }
+    UpdateQuickCounts();
     SetFilter(filter_text);
     grid->viewport()->update();
     UpdateHero();
+}
+
+void HomeView::UpdateQuickCounts() {
+    int favorites = 0;
+    int played = 0;
+    for (const GameInfo& game : games) {
+        favorites += game.favorite ? 1 : 0;
+        played += (game.last_played > 0 || game.play_time_seconds > 0) ? 1 : 0;
+    }
+    quick_buttons[0]->setText(tr("All") + QStringLiteral("  %1").arg(games.size()));
+    quick_buttons[1]->setText(tr("Favorites") + QStringLiteral("  %1").arg(favorites));
+    quick_buttons[2]->setText(tr("Played") + QStringLiteral("  %1").arg(played));
+}
+
+void HomeView::PickRandomGame() {
+    std::vector<int> rows;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        if (!grid->isRowHidden(row)) {
+            rows.push_back(row);
+        }
+    }
+    if (rows.empty()) {
+        return;
+    }
+    const int row = rows[QRandomGenerator::global()->bounded(static_cast<int>(rows.size()))];
+    grid->setCurrentIndex(model->index(row, 0));
+    grid->scrollTo(model->index(row, 0), QAbstractItemView::PositionAtCenter);
+}
+
+void HomeView::SetPreferences(bool list, int sort, int quick) {
+    sort_mode = static_cast<SortMode>(std::clamp(sort, 0, 3));
+    quick_filter = std::clamp(quick, 0, 2);
+    quick_buttons[quick_filter]->setChecked(true);
+    list_mode = list;
+    list_mode_button->setChecked(list);
+    grid_mode_button->setChecked(!list);
+    UpdateGridMetrics();
+    ApplySort();
 }
 
 void HomeView::SetQuickFilter(int mode) {
@@ -1560,6 +1649,8 @@ void HomeView::UpdateHero() {
         hero_desc->clear();
         hero_hours->clear();
         hero_art->SetGame(QPixmap(), QString());
+        hero_panel->setProperty("tint", QColor());
+        hero_panel->update();
         favorite_button->setIcon(MakeIcon(Glyph::Star, theme.text, 22, dpr));
         return;
     }
@@ -1589,6 +1680,8 @@ void HomeView::UpdateHero() {
     favorite_button->setIcon(
         MakeIcon(Glyph::Star, theme.text, 22, dpr, game->favorite, theme.favorite));
     hero_art->SetGame(game->icon, game->title, game->custom_cover);
+    hero_panel->setProperty("tint", hero_art->Base());
+    hero_panel->update();
 }
 
 void HomeView::SetLocale(const QLocale& locale) {
@@ -1629,7 +1722,6 @@ void HomeView::paintEvent(QPaintEvent*) {
 void HomeView::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     // Em janelas estreitas a arte do jogo some para dar espaco ao texto.
-    hero_art->setVisible(width() >= 880);
     // O destaque ocupa cerca de 29% da altura, para sobrar espaco para a grade.
     // Em janelas baixas ele fica compacto: so titulo e botoes.
     const bool was_compact = compact;
@@ -1637,6 +1729,7 @@ void HomeView::resizeEvent(QResizeEvent* event) {
     const int hero_height =
         compact ? 168 : std::clamp(static_cast<int>(height() * 0.29), 232, 300);
     hero_panel->setFixedHeight(hero_height + kShadowTop + kShadowBottom);
+    hero_art->setVisible(width() >= 900 && !compact);
     if (compact != was_compact) {
         UpdateHero();
     }

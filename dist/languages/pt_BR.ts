@@ -7944,6 +7944,10 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Jogados recentemente</translation>
     </message>
     <message>
+        <source>Surprise me</source>
+        <translation>Surpreenda-me</translation>
+    </message>
+    <message>
         <source>All</source>
         <translation>Todos</translation>
     </message>

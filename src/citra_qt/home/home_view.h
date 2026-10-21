@@ -23,7 +23,6 @@ namespace Home {
 
 class BatteryWidget;
 class HeroArt;
-class LogoWidget;
 
 /// Dados de um jogo exibidos na tela inicial. Preenchidos pela lista de jogos.
 struct GameInfo {
@@ -80,6 +79,17 @@ public:
     void SetSortMode(SortMode mode);
     /// Alterna entre a grade de capas e a lista detalhada (continua dentro da tela inicial).
     void SetListMode(bool enabled);
+    /// Preferencias de exibicao (salvas pelo GameList entre execucoes).
+    bool IsListMode() const {
+        return list_mode;
+    }
+    int GetSortMode() const {
+        return static_cast<int>(sort_mode);
+    }
+    int GetQuickFilter() const {
+        return quick_filter;
+    }
+    void SetPreferences(bool list, int sort, int quick);
 
     /// Troca a cor de destaque e deriva o restante da paleta.
     void SetAccentColor(const QColor& accent);
@@ -103,6 +113,7 @@ signals:
     void AddFolderRequested();
     void SearchRequested();
     void ClassicViewRequested();
+    void PreferencesChanged();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -121,6 +132,8 @@ private:
     void ApplySort();
     void UpdateGridMetrics();
     void SetQuickFilter(int mode);
+    void UpdateQuickCounts();
+    void PickRandomGame();
     void ShowContextMenuForCurrent(const QPoint& global_pos);
     QString SortModeText() const;
 
@@ -143,7 +156,7 @@ private:
     QVBoxLayout* grid_layout = nullptr;
     QWidget* search_widget = nullptr;
 
-    LogoWidget* logo = nullptr;
+    QPushButton* quick_buttons[3] = {nullptr, nullptr, nullptr};
     QLabel* date_label = nullptr;
     QLabel* time_label = nullptr;
     QFrame* battery_pill = nullptr;

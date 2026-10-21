@@ -438,6 +438,20 @@ GameList::GameList(PlayTime::PlayTimeManager& play_time_manager_, GMainWindow* p
     home_view->SetBackgroundColor(ColorFromSetting(UISettings::values.home_bg_top.GetValue()));
     home_view->SetAccentColor(
         QColor(QString::fromStdString(UISettings::values.home_accent_color.GetValue())));
+    {
+        // Lembra o modo (grade/lista), a ordem e o filtro rapido entre execucoes.
+        const QSettings prefs(HomeStatePath(), QSettings::IniFormat);
+        home_view->SetPreferences(prefs.value(QStringLiteral("view/list"), false).toBool(),
+                                  prefs.value(QStringLiteral("view/sort"), 0).toInt(),
+                                  prefs.value(QStringLiteral("view/quick"), 0).toInt());
+    }
+    connect(home_view, &Home::HomeView::PreferencesChanged, this, [this] {
+        QSettings prefs(HomeStatePath(), QSettings::IniFormat);
+        prefs.setValue(QStringLiteral("view/list"), home_view->IsListMode());
+        prefs.setValue(QStringLiteral("view/sort"), home_view->GetSortMode());
+        prefs.setValue(QStringLiteral("view/quick"), home_view->GetQuickFilter());
+        prefs.sync();
+    });
     connect(home_view, &Home::HomeView::GameActivated, this, &GameList::OnHomeGameActivated);
     connect(home_view, &Home::HomeView::GameContextMenuRequested, this,
             &GameList::PopupHomeContextMenu);
