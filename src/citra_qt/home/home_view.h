@@ -40,6 +40,7 @@ struct GameInfo {
     QString subtitle; // titulo longo ou nome do arquivo
     QPixmap icon;     // icone grande (48x48) do SMDH; nulo se nao houver
     QString region;
+    QString product_id; // codigo de 4 letras do jogo (ex.: BNDP); vazio se desconhecido
     QString size_text;
     QString compat_text;
     QString compat_key; // "0".."5" ou "99" (nao testado)

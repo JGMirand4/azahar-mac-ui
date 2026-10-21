@@ -548,6 +548,19 @@ static QRectF FitRect(const QPixmap& pixmap, const QRectF& box) {
 /// Estilo do icone dos jogos: 0 = normal (estojo), 1 = cartucho de 3DS.
 static int g_icon_style = 0;
 
+/// Texto do rodape da etiqueta do cartucho: "CTR-<codigo>-<regiao>" (ex.: CTR-BNDP-EUR).
+static QString CartridgeFooter(const QString& product_id, const QString& region) {
+    QString reg = region.section(QLatin1Char(','), 0, 0).trimmed().left(3).toUpper();
+    QString text = QStringLiteral("CTR");
+    if (!product_id.isEmpty()) {
+        text += QLatin1Char('-') + product_id.toUpper();
+    }
+    if (!reg.isEmpty()) {
+        text += QLatin1Char('-') + reg;
+    }
+    return text;
+}
+
 /// Retangulo do cartucho dentro do espaco quadrado do icone (o cartucho real e quase quadrado).
 static QRectF CartridgeRect(const QRectF& slot) {
     const qreal w = slot.width() * 0.92;
@@ -700,10 +713,10 @@ static void PaintCartridge(QPainter* p, const QRectF& slot, const QPixmap& icon,
         p->setPen(QColor(0x1A, 0x1A, 0x1A));
         p->drawText(QPointF(x + three_w, base), QStringLiteral("DS"));
         if (!footer.isEmpty()) {
-            p->setFont(make(footer_h * 0.38));
+            p->setFont(make(footer_h * 0.34));
             p->setPen(QColor(0x3A, 0x40, 0x48));
             p->drawText(footer_rect.adjusted(footer_rect.width() * 0.06, 0, 0, 0),
-                        Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("CTR-") + footer);
+                        Qt::AlignLeft | Qt::AlignVCenter, footer);
         }
     }
     p->restore();
@@ -822,8 +835,8 @@ static void PaintTile(QPainter* p, const QRectF& slot, const GameInfo& game, con
     if (g_icon_style == 1) {
         rect = CartridgeRect(slot);
         PaintCartridge(p, slot, game.icon, boxed,
-                       game.title.isEmpty() ? QString() : game.title.left(1).toUpper(), game.region,
-                       theme, selected, true);
+                       game.title.isEmpty() ? QString() : game.title.left(1).toUpper(),
+                       CartridgeFooter(game.product_id, game.region), theme, selected, true);
     } else {
         const qreal radius = (boxed ? 12.0 : 27.0) * radius_scale;
 
@@ -1540,7 +1553,7 @@ private:
         if (g_icon_style == 1) {
             PaintCartridge(p, icon_rect, game.icon, boxed,
                            game.title.isEmpty() ? QString() : game.title.left(1).toUpper(),
-                           game.region, theme, false, false);
+                           CartridgeFooter(game.product_id, game.region), theme, false, false);
         } else {
             const QRectF art_rect = boxed ? FitRect(game.icon, icon_rect) : icon_rect;
             QPainterPath clip;
@@ -2240,6 +2253,8 @@ void HomeView::RebuildStyleSheet() {
     min-height: 32px; max-height: 32px;
     color: @ink@;
 }
+#homeRoot QPushButton:focus { border: 2px solid @accent@; }
+#homeRoot QPushButton#play:focus { border: 2px solid #FFFFFF; }
 #homeRoot QPushButton#filterChip:hover { background: #EEF3FA; border-color: @accent@; }
 #homeRoot QPushButton#filterChip:checked { background: @accent@; border-color: @accent@; color: #FFFFFF; }
 #homeRoot QPushButton#surpriseChip {
@@ -2302,8 +2317,21 @@ void HomeView::UpdateEmptyState(int visible) {
     UpdateHeroSize();
     if (empty) {
         const bool no_games = games.empty();
-        const QString text = no_games ? tr("No games yet.\nAdd the folder where your games are.")
-                                      : tr("No games match your search.");
+        const bool searching = !filter_text.isEmpty();
+        QString text;
+        Glyph empty_glyph = Glyph::Search;
+        if (no_games) {
+            text = tr("No games yet.\nAdd the folder where your games are.");
+            empty_glyph = Glyph::Folder;
+        } else if (!searching && quick_filter == 1) {
+            text = tr("No favorites yet.\nPress F on a game to add it.");
+            empty_glyph = Glyph::Star;
+        } else if (!searching && quick_filter == 2) {
+            text = tr("Nothing played yet.\nGames you play show up here.");
+            empty_glyph = Glyph::Home;
+        } else {
+            text = tr("No games match your search.");
+        }
         const QStringList lines = text.split(QLatin1Char('\n'));
         QString html = QStringLiteral("<div style='font-size:24px; font-weight:700;'>%1</div>")
                            .arg(lines.value(0).toHtmlEscaped());
@@ -2315,7 +2343,7 @@ void HomeView::UpdateEmptyState(int visible) {
         QColor icon_color = theme.text_muted;
         icon_color.setAlphaF(0.55);
         const qreal dpr = devicePixelRatioF();
-        empty_icon->setPixmap(MakeGlyph(no_games ? Glyph::Folder : Glyph::Search, icon_color, 72, dpr));
+        empty_icon->setPixmap(MakeGlyph(empty_glyph, icon_color, 72, dpr));
         empty_add_button->setVisible(no_games);
     }
 }
@@ -2958,7 +2986,8 @@ void HomeView::UpdateHero() {
     favorite_button->setChecked(game->favorite);
     favorite_button->setIcon(
         MakeIcon(Glyph::Star, theme.text, 22, dpr, game->favorite, theme.favorite));
-    hero_art->SetGame(game->icon, game->title, game->custom_cover, game->region);
+    hero_art->SetGame(game->icon, game->title, game->custom_cover,
+                      CartridgeFooter(game->product_id, game->region));
     hero_panel->setProperty("tint", hero_art->Base());
     hero_panel->update();
     UpdateTint();
