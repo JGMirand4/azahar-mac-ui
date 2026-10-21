@@ -280,6 +280,46 @@ QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool fille
     return QIcon(MakeGlyph(glyph, color, size, dpr, filled, fill_color));
 }
 
+/// Emblema da marca: quadrado arredondado com degrade da cor de destaque e uma flor de
+/// laranjeira (azahar) branca no centro.
+QPixmap MakeBrandBadge(const Theme& theme, int size, qreal dpr) {
+    QPixmap pm(QSize(size, size) * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r(1, 1, size - 2, size - 2);
+    QLinearGradient bg(r.topLeft(), r.bottomRight());
+    bg.setColorAt(0.0, theme.accent_light);
+    bg.setColorAt(1.0, theme.accent);
+    p.setPen(Qt::NoPen);
+    p.setBrush(bg);
+    p.drawRoundedRect(r, size * 0.30, size * 0.30);
+    // Brilho suave no topo.
+    QLinearGradient shine(r.topLeft(), QPointF(r.left(), r.center().y()));
+    shine.setColorAt(0.0, QColor(255, 255, 255, 70));
+    shine.setColorAt(1.0, QColor(255, 255, 255, 0));
+    p.setBrush(shine);
+    p.drawRoundedRect(r, size * 0.30, size * 0.30);
+    // Flor: cinco petalas.
+    const QPointF c = r.center();
+    p.translate(c);
+    for (int i = 0; i < 5; ++i) {
+        p.save();
+        p.rotate(i * 72.0);
+        p.setBrush(QColor(255, 255, 255, 245));
+        p.setPen(QPen(QColor(0, 0, 0, 28), 0.6));
+        p.drawEllipse(QRectF(-size * 0.095, -size * 0.36, size * 0.19, size * 0.30));
+        p.restore();
+    }
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0xF7, 0xB5, 0x2C));
+    p.drawEllipse(QPointF(0, 0), size * 0.085, size * 0.085);
+    p.setBrush(QColor(0xFF, 0xDF, 0x7A));
+    p.drawEllipse(QPointF(-size * 0.02, -size * 0.02), size * 0.035, size * 0.035);
+    return pm;
+}
+
 /// Moeda dourada (estilo "Moeda de Jogo" do 3DS) com uma estrela no centro.
 QPixmap MakeCoin(int size, qreal dpr) {
     QPixmap pm(QSize(size, size) * dpr);
@@ -1726,12 +1766,16 @@ void HomeView::BuildUi() {
     auto* brand = new QWidget(top);
     auto* brand_layout = new QHBoxLayout(brand);
     brand_layout->setContentsMargins(0, 0, 0, 0);
-    brand_layout->setSpacing(12);
+    brand_layout->setSpacing(14);
+    brand_badge = new QLabel(brand);
+    brand_badge->setFixedSize(52, 52);
+    brand_badge->setPixmap(MakeBrandBadge(theme, 52, dpr));
+    brand_layout->addWidget(brand_badge);
     auto* brand_text = new QVBoxLayout;
     brand_text->setSpacing(0);
     auto* app_name = new QLabel(tr("Azahar"), brand);
     app_name->setObjectName(QStringLiteral("appName"));
-    app_name->setFont(RoundedFont(24, QFont::DemiBold));
+    app_name->setFont(RoundedFont(27, QFont::Bold));
     auto* app_tag = new QLabel(tr("NINTENDO 3DS EMULATOR"), brand);
     app_tag->setObjectName(QStringLiteral("appTag"));
     QFont tag_font = BodyFont(11, QFont::Bold);
@@ -2219,6 +2263,9 @@ void HomeView::BuildUi() {
 }
 
 void HomeView::RebuildStyleSheet() {
+    if (brand_badge != nullptr) {
+        brand_badge->setPixmap(MakeBrandBadge(theme, 52, devicePixelRatioF()));
+    }
     if (console_emblem != nullptr) {
         console_emblem->setPixmap(MakeGlyph(Glyph::Console, theme.on_bg, 46, devicePixelRatioF()));
     }

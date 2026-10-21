@@ -226,6 +226,7 @@ private:
     QPushButton* more_button = nullptr;
     QPushButton* surprise_button = nullptr;
     QLabel* console_emblem = nullptr;
+    QLabel* brand_badge = nullptr;
     QFrame* coin_pill = nullptr;
     QLabel* coin_label = nullptr;
     ListHeader* list_header = nullptr;
