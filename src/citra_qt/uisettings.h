@@ -30,7 +30,7 @@ struct Shortcut {
     ContextualShortcut shortcut;
 };
 
-using Themes = std::array<std::pair<const char*, const char*>, 6>;
+using Themes = std::array<std::pair<const char*, const char*>, 7>;
 extern const Themes themes;
 
 struct GameDir {
@@ -113,6 +113,9 @@ struct Values {
     Settings::Setting<GameListText> game_list_row_2{GameListText::FileName, Settings::Keys::row2};
     Settings::Setting<bool> game_list_hide_no_icon{false, Settings::Keys::hideNoIcon};
     Settings::Setting<bool> game_list_single_line_mode{false, Settings::Keys::singleLineMode};
+    // Tela inicial estilo HOME do 3DS (grade de cards) em vez da lista classica.
+    Settings::Setting<bool> game_list_use_home_view{true, Settings::Keys::useHomeView};
+    Settings::Setting<std::string> home_accent_color{"#0F6FD0", Settings::Keys::homeAccentColor};
 
     // Compatibility List
     Settings::Setting<bool> show_compat_column{true, Settings::Keys::show_compat_column};

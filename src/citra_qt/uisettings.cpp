@@ -7,6 +7,7 @@
 namespace UISettings {
 
 const Themes themes{{
+    {"Home 3DS", "home3ds"},
     {"System", "default"},
     {"System With Colorful Icons", "colorful"},
     {"Dark", "qdarkstyle"},
