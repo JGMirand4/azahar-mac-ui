@@ -135,6 +135,8 @@ add_library(citra_qt STATIC EXCLUDE_FROM_ALL
     home/battery_status.cpp
     home/battery_status.h
     home/cover_fetcher.cpp
+    home/gamepad.cpp
+    home/gamepad.h
     home/cover_fetcher.h
     home/home_theme.h
     home/home_view.cpp
@@ -222,6 +224,7 @@ endif()
 
 if (APPLE)
   target_sources(citra_qt PUBLIC
+    home/gamepad_mac.mm
     qt_swizzle.h
     qt_swizzle.mm
     util/metal_util.h
@@ -340,7 +343,7 @@ if (NOT WIN32)
 endif()
 
 if (APPLE)
-    target_link_libraries(citra_qt PRIVATE Qt6::QDarwinCameraPermissionPlugin "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(citra_qt PRIVATE Qt6::QDarwinCameraPermissionPlugin "-framework IOKit" "-framework CoreFoundation" "-framework GameController")
 elseif (UNIX)
     target_link_libraries(citra_qt PUBLIC Qt6::DBus gamemode)
 endif()

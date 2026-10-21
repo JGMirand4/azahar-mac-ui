@@ -33,6 +33,7 @@
 #include <QVBoxLayout>
 #include <QVariantAnimation>
 #include "citra_qt/home/battery_status.h"
+#include "citra_qt/home/gamepad.h"
 #include "citra_qt/home/home_view.h"
 #include "citra_qt/home/sound_bank.h"
 
@@ -1716,6 +1717,14 @@ void HomeView::BuildUi() {
     connect(clock_timer, &QTimer::timeout, this, [this] { UpdateClock(); });
     clock_timer->start();
     curtain = new Curtain(this, this);
+    gamepad = new GamepadNav(this);
+    connect(gamepad, &GamepadNav::ButtonPressed, this,
+            [this](int button) { HandlePadButton(button); });
+    connect(gamepad, &GamepadNav::ConnectionChanged, this, [this](bool connected) {
+        pad_hints = connected;
+        UpdateHints();
+    });
+    carousel->installEventFilter(this);
     ApplyViewMode();
     UpdateHints();
 }
@@ -2111,6 +2120,19 @@ void HomeView::FocusActiveView() {
 
 void HomeView::UpdateHints() {
     QList<QPair<QString, QString>> list;
+    if (pad_hints) {
+        // Botoes do controle (PlayStation usa simbolos; os demais usam letras).
+        const bool ps = pad_layout == 1;
+        list.append({tr("D-Pad"), tr("Navigate")});
+        list.append({ps ? QStringLiteral("\u2715") : QStringLiteral("A"), tr("Play")});
+        list.append({ps ? QStringLiteral("\u25CB") : QStringLiteral("B"), tr("Home")});
+        list.append({ps ? QStringLiteral("\u25A1") : QStringLiteral("X"), tr("Favorite")});
+        list.append({ps ? QStringLiteral("\u25B3") : QStringLiteral("Y"), tr("Random")});
+        list.append({ps ? QStringLiteral("L1  R1") : QStringLiteral("L  R"), tr("Filter")});
+        list.append({ps ? tr("Options") : tr("Menu"), tr("Settings")});
+        hints->SetHints(list);
+        return;
+    }
     if (view_mode == 0) {
         list.append({QStringLiteral("\u2190 \u2192"), tr("Navigate")});
     } else if (view_mode == 1) {
@@ -2125,6 +2147,52 @@ void HomeView::UpdateHints() {
     list.append({QStringLiteral("/"), tr("Search")});
     list.append({QStringLiteral("Esc"), tr("Home")});
     hints->SetHints(list);
+}
+
+/// Controle: traduz o botao apertado em uma tecla e entrega para a vista ativa, assim o
+/// controle e o teclado compartilham exatamente o mesmo comportamento.
+void HomeView::HandlePadButton(int button) {
+    if (!isVisible() || launching || curtain->isVisible() || !window()->isActiveWindow() ||
+        QApplication::activeModalWidget() != nullptr ||
+        QApplication::activePopupWidget() != nullptr) {
+        return; // outra janela, menu ou jogo tem o foco: o controle nao navega aqui
+    }
+    if (!pad_hints || pad_layout != (gamepad != nullptr ? gamepad->Layout() : 0)) {
+        pad_hints = true;
+        pad_layout = gamepad != nullptr ? gamepad->Layout() : 0;
+        UpdateHints();
+    }
+    if (button == GamepadNav::Start) {
+        emit SettingsRequested();
+        return;
+    }
+    struct KeyMap {
+        int key;
+        const char* text;
+    };
+    static const KeyMap kMap[GamepadNav::ButtonCount] = {
+        {Qt::Key_Up, ""},     {Qt::Key_Down, ""},   {Qt::Key_Left, ""}, {Qt::Key_Right, ""},
+        {Qt::Key_Return, ""}, {Qt::Key_Escape, ""}, {Qt::Key_F, "f"},   {Qt::Key_R, "r"},
+        {Qt::Key_Q, "q"},     {Qt::Key_E, "e"},     {Qt::Key_unknown, ""},
+    };
+    if (button < 0 || button >= GamepadNav::ButtonCount || kMap[button].key == Qt::Key_unknown) {
+        return;
+    }
+    QWidget* target = QApplication::focusWidget();
+    if (target == nullptr || qobject_cast<QLineEdit*>(target) != nullptr || !isAncestorOf(target)) {
+        FocusActiveView();
+        target = QApplication::focusWidget();
+    }
+    if (target == nullptr) {
+        target = view_mode == 0 ? static_cast<QWidget*>(carousel) : static_cast<QWidget*>(grid);
+    }
+    injecting = true;
+    const QString text = QString::fromLatin1(kMap[button].text);
+    QKeyEvent press(QEvent::KeyPress, kMap[button].key, Qt::NoModifier, text);
+    QApplication::sendEvent(target, &press);
+    QKeyEvent release(QEvent::KeyRelease, kMap[button].key, Qt::NoModifier, text);
+    QApplication::sendEvent(target, &release);
+    injecting = false;
 }
 
 /// Atalhos de console: F favorita, Q/E trocam o filtro, R sorteia, / busca, Esc volta ao inicio.
@@ -2267,6 +2335,11 @@ void HomeView::UpdateGridMetrics() {
 }
 
 bool HomeView::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::KeyPress && !injecting && pad_hints &&
+        (watched == grid || watched == carousel)) {
+        pad_hints = false; // o jogador voltou ao teclado
+        UpdateHints();
+    }
     if (watched == grid && event->type() == QEvent::KeyPress &&
         HandleShortcut(static_cast<QKeyEvent*>(event))) {
         return true;

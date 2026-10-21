@@ -22,6 +22,7 @@ class QVBoxLayout;
 namespace Home {
 
 class CarouselWidget;
+class GamepadNav;
 class Curtain;
 class HintBar;
 class SoundBank;
@@ -89,6 +90,8 @@ public:
     void SetSoundOptions(const QString& dir, bool enabled);
     /// Reflete no botao do topo se o modo console esta ativo.
     void SetConsoleMode(bool enabled);
+    /// Um botao do controle foi apertado (valores de GamepadNav::Button).
+    void HandlePadButton(int button);
     /// Preferencias de exibicao (salvas pelo GameList entre execucoes).
     int GetViewMode() const {
         return view_mode;
@@ -177,6 +180,10 @@ private:
     SoundBank* sounds = nullptr;
     QPushButton* console_button = nullptr;
     bool launching = false;
+    GamepadNav* gamepad = nullptr;
+    bool pad_hints = false;  // dicas mostram os botoes do controle em vez das teclas
+    bool injecting = false;  // teclas sinteticas vindas do controle
+    int pad_layout = 0;
     bool sound_mute = true; // ligado enquanto a tela monta, para nao tocar sons sem querer
     HintBar* hints = nullptr;
     QPushButton* mode_buttons[3] = {nullptr, nullptr, nullptr};

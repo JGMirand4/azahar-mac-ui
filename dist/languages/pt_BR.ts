@@ -7964,6 +7964,18 @@ Se desejar limpar os arquivos que foram deixados no local de dados antigo, você
         <translation>Modo console (tela cheia)</translation>
     </message>
     <message>
+        <source>D-Pad</source>
+        <translation>Direcional</translation>
+    </message>
+    <message>
+        <source>Menu</source>
+        <translation>Menu</translation>
+    </message>
+    <message>
+        <source>Options</source>
+        <translation>Options</translation>
+    </message>
+    <message>
         <source>Surprise me</source>
         <translation>Surpreenda-me</translation>
     </message>
