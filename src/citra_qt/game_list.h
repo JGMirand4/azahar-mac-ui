@@ -63,6 +63,9 @@ class GameList : public QWidget {
     Q_OBJECT
 
 public:
+    /// Atualiza o emblema da tela inicial quando o icone do app muda.
+    void RefreshAppIcon();
+
     enum {
         COLUMN_NAME,
         COLUMN_COMPATIBILITY,

@@ -96,6 +96,8 @@ public:
     void SetPadStyle(int style);
     /// Estilo do icone dos jogos: 0 = normal, 1 = cartucho de 3DS.
     void SetIconStyle(int style);
+    /// Redesenha o emblema da marca com o icone atual do app (claro ou escuro).
+    void RefreshBrand();
     /// Reflete no botao do topo se o modo console esta ativo.
     void SetConsoleMode(bool enabled);
     /// Um botao do controle foi apertado (valores de GamepadNav::Button).

@@ -490,7 +490,10 @@ GMainWindow::GMainWindow(Core::System& system_)
     LOG_INFO(Frontend, "Host Swap: {:.2f} GiB", mem_info.total_swap_memory / f64{1_GiB});
     UpdateWindowTitle();
 
-    QIcon azahar_icon = QIcon(QString::fromStdString(":/icons/default/256x256/azahar.png"));
+    QIcon azahar_icon = QGuiApplication::windowIcon();
+    if (azahar_icon.isNull()) {
+        azahar_icon = QIcon(QString::fromStdString(":/icons/default/256x256/azahar.png"));
+    }
     render_window->setWindowIcon(azahar_icon);
     secondary_window->setWindowIcon(azahar_icon);
 
@@ -3105,6 +3108,7 @@ void GMainWindow::OnConfigure() {
     auto old_theme = UISettings::values.theme;
     const auto old_accent = UISettings::values.home_accent_color.GetValue();
     const auto old_bg_top = UISettings::values.home_bg_top.GetValue();
+    const auto old_app_icon = UISettings::values.home_app_icon.GetValue();
     const int old_input_profile_index = Settings::values.current_input_profile_index;
     const auto old_input_profiles = Settings::values.input_profiles;
     const auto old_touch_from_button_maps = Settings::values.touch_from_button_maps;
@@ -3121,8 +3125,13 @@ void GMainWindow::OnConfigure() {
         InitializeHotkeys();
         if (UISettings::values.theme != old_theme ||
             UISettings::values.home_accent_color.GetValue() != old_accent ||
-            UISettings::values.home_bg_top.GetValue() != old_bg_top) {
+            UISettings::values.home_bg_top.GetValue() != old_bg_top ||
+            UISettings::values.home_app_icon.GetValue() != old_app_icon) {
             UpdateUITheme();
+            const QIcon new_icon = QGuiApplication::windowIcon();
+            render_window->setWindowIcon(new_icon);
+            secondary_window->setWindowIcon(new_icon);
+            game_list->RefreshAppIcon();
         }
 #ifdef ENABLE_DISCORD_RPC
         if (UISettings::values.enable_discord_presence.GetValue() != old_discord_presence) {
@@ -4362,16 +4371,14 @@ void GMainWindow::UpdateUITheme() {
         const bool system_dark = system_palette.color(QPalette::Window).lightness() < 128;
         const int choice = UISettings::values.home_app_icon.GetValue();
         const bool light = choice == 2 || (choice == 0 && !system_dark);
-        const QIcon app_icon(light ? QStringLiteral(":/home3ds/app_icon_light.png")
-                                   : QStringLiteral(":/home3ds/app_icon_dark.png"));
-        if (!app_icon.isNull()) {
+        const QString icon_path = light ? QStringLiteral(":/home3ds/app_icon_light.png")
+                                        : QStringLiteral(":/home3ds/app_icon_dark.png");
+        const QPixmap icon_pixmap(icon_path);
+        LOG_INFO(Frontend, "App icon: choice={} light={} loaded={}", choice, light,
+                 !icon_pixmap.isNull());
+        if (!icon_pixmap.isNull()) {
+            const QIcon app_icon(icon_pixmap);
             qApp->setWindowIcon(app_icon);
-            if (render_window != nullptr) {
-                render_window->setWindowIcon(app_icon);
-            }
-            if (secondary_window != nullptr) {
-                secondary_window->setWindowIcon(app_icon);
-            }
         }
     }
     if (!is_home_theme) {

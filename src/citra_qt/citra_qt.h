@@ -111,7 +111,7 @@ public:
     explicit GMainWindow(Core::System& system);
     ~GMainWindow();
 
-    GameList* game_list;
+    GameList* game_list = nullptr;
     std::unique_ptr<PlayTime::PlayTimeManager> play_time_manager;
 #ifdef ENABLE_DISCORD_RPC
     std::unique_ptr<DiscordRPC::DiscordInterface> discord_rpc;
@@ -353,8 +353,8 @@ private:
     Core::System& system;
     Core::Movie& movie;
 
-    GRenderWindow* render_window;
-    GRenderWindow* secondary_window;
+    GRenderWindow* render_window = nullptr;
+    GRenderWindow* secondary_window = nullptr;
 
     GameListPlaceholder* game_list_placeholder;
     LoadingScreen* loading_screen;

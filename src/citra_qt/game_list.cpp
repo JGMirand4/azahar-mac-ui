@@ -205,6 +205,12 @@ static bool ContainsAllWords(const QString& haystack, const QString& userinput) 
                        [&haystack](const QString& s) { return haystack.contains(s); });
 }
 
+void GameList::RefreshAppIcon() {
+    if (home_view != nullptr) {
+        home_view->RefreshBrand();
+    }
+}
+
 // Syncs the expanded state of Game Directories with settings to persist across sessions
 void GameList::OnItemExpanded(const QModelIndex& item) {
     const auto type = item.data(GameListItem::TypeRole).value<GameListItemType>();
