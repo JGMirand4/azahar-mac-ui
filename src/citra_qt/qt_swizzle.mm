@@ -14,7 +14,7 @@ void Dummy() {
 
 } // namespace QtSwizzle
 
-@implementation QMetalLayer (AzaharPatch)
+@implementation QMetalLayer (HanamiPatch)
 
 + (void)load {
     static dispatch_once_t onceToken;

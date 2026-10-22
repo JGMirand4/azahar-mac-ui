@@ -34,10 +34,10 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Azahar-dmg
+          name: Hanami-dmg
           path: dist/*.dmg
       - name: Publish release
         if: ${{ github.ref_type == 'tag' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "Azahar 3DS Home UI $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/*.dmg --title "Hanami $GITHUB_REF_NAME" --generate-notes

@@ -88,6 +88,7 @@ typedef struct stat file_stat_t;
 #endif
 
 #include <algorithm>
+#include <filesystem>
 #include <sys/stat.h>
 
 #ifndef S_ISDIR
@@ -932,6 +933,25 @@ std::unordered_map<UserPath, std::string> g_paths;
 std::unordered_map<UserPath, std::string> g_default_paths;
 } // namespace
 
+/// Renomeia a pasta de dados antiga ("Azahar") para o nome novo ("Hanami"), uma unica vez e
+/// somente se a nova ainda nao existir. Mover dentro da mesma pasta e instantaneo e nao copia nada.
+static void MigrateLegacyDir(const std::string& old_dir, const std::string& new_dir) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::path from(old_dir);
+    fs::path to(new_dir);
+    // Remove a barra final para o rename funcionar de forma consistente.
+    if (from.filename().empty()) {
+        from = from.parent_path();
+    }
+    if (to.filename().empty()) {
+        to = to.parent_path();
+    }
+    if (fs::is_directory(from, ec) && !fs::exists(to, ec)) {
+        fs::rename(from, to, ec);
+    }
+}
+
 void SetUserPath(const std::string& path) {
     std::string& user_path = g_paths[UserPath::UserDir];
 
@@ -947,6 +967,8 @@ void SetUserPath(const std::string& path) {
         std::string& legacy_lime3ds_user_path = g_paths[UserPath::LegacyLime3DSUserDir];
 
         if (!FileUtil::IsDirectory(user_path)) {
+            MigrateLegacyDir(AppDataRoamingDirectory() + DIR_SEP LEGACY_AZAHAR_DATA_DIR DIR_SEP,
+                             AppDataRoamingDirectory() + DIR_SEP EMU_DATA_DIR DIR_SEP);
             user_path = AppDataRoamingDirectory() + DIR_SEP EMU_DATA_DIR DIR_SEP;
             legacy_citra_user_path =
                 AppDataRoamingDirectory() + DIR_SEP LEGACY_CITRA_DATA_DIR DIR_SEP;
@@ -972,6 +994,16 @@ void SetUserPath(const std::string& path) {
             g_paths.emplace(UserPath::ConfigDir, user_path + CONFIG_DIR DIR_SEP);
             g_paths.emplace(UserPath::CacheDir, user_path + CACHE_DIR DIR_SEP);
         } else {
+            MigrateLegacyDir(GetUserDirectory("XDG_DATA_HOME") + DIR_SEP LEGACY_AZAHAR_DATA_DIR DIR_SEP,
+                             GetUserDirectory("XDG_DATA_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP);
+            MigrateLegacyDir(GetUserDirectory("XDG_CONFIG_HOME") + DIR_SEP LEGACY_AZAHAR_DATA_DIR DIR_SEP,
+                             GetUserDirectory("XDG_CONFIG_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP);
+            MigrateLegacyDir(GetUserDirectory("XDG_CACHE_HOME") + DIR_SEP LEGACY_AZAHAR_DATA_DIR DIR_SEP,
+                             GetUserDirectory("XDG_CACHE_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP);
+#if defined(__APPLE__)
+            MigrateLegacyDir(GetHomeDirectory() + DIR_SEP LEGACY_AZAHAR_APPLE_DATA_DIR DIR_SEP,
+                             GetHomeDirectory() + DIR_SEP EMU_APPLE_DATA_DIR DIR_SEP);
+#endif
             std::string data_dir = GetUserDirectory("XDG_DATA_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP;
 
             std::string legacy_citra_data_dir =

@@ -12,6 +12,8 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QCache>
+#include <QGuiApplication>
 #include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QLabel>
@@ -278,6 +280,55 @@ QPixmap MakeGlyph(Glyph glyph, const QColor& color, int size, qreal dpr, bool fi
 QIcon MakeIcon(Glyph glyph, const QColor& color, int size, qreal dpr, bool filled = false,
                const QColor& fill_color = QColor()) {
     return QIcon(MakeGlyph(glyph, color, size, dpr, filled, fill_color));
+}
+
+/// Emblema da marca: quadrado arredondado com degrade da cor de destaque e uma flor de
+/// laranjeira (azahar) branca no centro.
+QPixmap MakeBrandBadge(const Theme& theme, int size, qreal dpr) {
+    // Preferimos o icone do app (claro ou escuro, conforme a configuracao); a flor desenhada
+    // abaixo e o plano B.
+    const QIcon app_icon = QGuiApplication::windowIcon();
+    if (!app_icon.isNull()) {
+        const QPixmap from_icon = app_icon.pixmap(QSize(size, size), dpr);
+        if (!from_icon.isNull()) {
+            return from_icon;
+        }
+    }
+    QPixmap pm(QSize(size, size) * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r(1, 1, size - 2, size - 2);
+    QLinearGradient bg(r.topLeft(), r.bottomRight());
+    bg.setColorAt(0.0, theme.accent_light);
+    bg.setColorAt(1.0, theme.accent);
+    p.setPen(Qt::NoPen);
+    p.setBrush(bg);
+    p.drawRoundedRect(r, size * 0.30, size * 0.30);
+    // Brilho suave no topo.
+    QLinearGradient shine(r.topLeft(), QPointF(r.left(), r.center().y()));
+    shine.setColorAt(0.0, QColor(255, 255, 255, 70));
+    shine.setColorAt(1.0, QColor(255, 255, 255, 0));
+    p.setBrush(shine);
+    p.drawRoundedRect(r, size * 0.30, size * 0.30);
+    // Flor: cinco petalas.
+    const QPointF c = r.center();
+    p.translate(c);
+    for (int i = 0; i < 5; ++i) {
+        p.save();
+        p.rotate(i * 72.0);
+        p.setBrush(QColor(255, 255, 255, 245));
+        p.setPen(QPen(QColor(0, 0, 0, 28), 0.6));
+        p.drawEllipse(QRectF(-size * 0.095, -size * 0.36, size * 0.19, size * 0.30));
+        p.restore();
+    }
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0xF7, 0xB5, 0x2C));
+    p.drawEllipse(QPointF(0, 0), size * 0.085, size * 0.085);
+    p.setBrush(QColor(0xFF, 0xDF, 0x7A));
+    p.drawEllipse(QPointF(-size * 0.02, -size * 0.02), size * 0.035, size * 0.035);
+    return pm;
 }
 
 /// Moeda dourada (estilo "Moeda de Jogo" do 3DS) com uma estrela no centro.
@@ -781,7 +832,13 @@ public:
         region = region_;
         real_cover = real_cover_;
         initial = title.isEmpty() ? QString() : title.left(1).toUpper();
-        base = AverageColor(icon, theme->accent_light);
+        const qint64 key = icon.isNull() ? 0 : icon.cacheKey();
+        if (key != 0 && key == base_key) {
+            // mesma imagem: reaproveita a cor media ja calculada
+        } else {
+            base = AverageColor(icon, theme->accent_light);
+            base_key = key;
+        }
         animation->stop();
         animation->start();
         update();
@@ -849,6 +906,7 @@ private:
     QString initial;
     QColor base;
     QVariantAnimation* animation = nullptr;
+    qint64 base_key = 0;
     qreal fade = 1.0;
 };
 
@@ -973,6 +1031,44 @@ public:
     }
 
 protected:
+    /// Desenha um jogo reaproveitando uma imagem ja pronta (capa, sombra, lombada e textos sao
+    /// caros). A imagem e feita uma vez no tamanho do selecionado e so escalada durante a
+    /// animacao, o que deixa a navegacao fluida.
+    void DrawTile(QPainter* p, const QRectF& rect, int i, bool selected) {
+        constexpr qreal kMargin = 36.0;
+        const GameInfo& game = GameAt(i);
+        const int side = std::max(8, qRound(Sel()));
+        const qreal dpr = devicePixelRatioF();
+        const QString key = QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10")
+                                .arg(game.path)
+                                .arg(selected)
+                                .arg(side)
+                                .arg(g_icon_style)
+                                .arg(game.icon.isNull() ? 0 : game.icon.cacheKey())
+                                .arg(game.favorite)
+                                .arg(view->theme.accent.rgb())
+                                .arg(game.product_id, game.region)
+                                .arg(dpr);
+        QPixmap* cached = tile_cache.object(key);
+        if (cached == nullptr) {
+            const int full = static_cast<int>(side + 2 * kMargin);
+            auto* pm = new QPixmap(QSize(full, full) * dpr);
+            pm->setDevicePixelRatio(dpr);
+            pm->fill(Qt::transparent);
+            {
+                QPainter tp(pm);
+                PaintTile(&tp, QRectF(kMargin, kMargin, side, side), game, view->theme, selected,
+                          side / kIconSize);
+            }
+            tile_cache.insert(key, pm);
+            cached = pm;
+        }
+        const qreal k = rect.width() / side;
+        const QRectF target(rect.left() - kMargin * k, rect.top() - kMargin * k,
+                            (side + 2 * kMargin) * k, (side + 2 * kMargin) * k);
+        p->drawPixmap(target, *cached, QRectF(QPointF(0, 0), QSizeF(cached->size())));
+    }
+
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
         p.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform |
@@ -1016,8 +1112,7 @@ protected:
                 continue;
             }
             p.setOpacity(opacity);
-            PaintTile(&p, rect, GameAt(i), view->theme, std::abs(i - position) < 0.5,
-                      rect.width() / kIconSize);
+            DrawTile(&p, rect, i, std::abs(i - position) < 0.5);
         }
         p.setOpacity(1.0);
 
@@ -1221,6 +1316,7 @@ private:
     HomeView* view;
     std::vector<int> rows;
     int current = 0;
+    QCache<QString, QPixmap> tile_cache{48};
     qreal position = 0.0;
     int wheel_accum = 0;
     QVariantAnimation* animation = nullptr;
@@ -1421,7 +1517,7 @@ protected:
             p.translate(rect().center());
             const qreal scale = 1.0 + 0.06 * t;
             p.scale(scale, scale);
-            p.drawText(QRectF(-300, -52, 600, 70), Qt::AlignCenter, QStringLiteral("Azahar"));
+            p.drawText(QRectF(-300, -52, 600, 70), Qt::AlignCenter, QStringLiteral("Hanami"));
             QFont tag = BodyFont(13, QFont::Bold);
             tag.setLetterSpacing(QFont::AbsoluteSpacing, 3.0);
             p.setFont(tag);
@@ -1726,12 +1822,16 @@ void HomeView::BuildUi() {
     auto* brand = new QWidget(top);
     auto* brand_layout = new QHBoxLayout(brand);
     brand_layout->setContentsMargins(0, 0, 0, 0);
-    brand_layout->setSpacing(12);
+    brand_layout->setSpacing(14);
+    brand_badge = new QLabel(brand);
+    brand_badge->setFixedSize(52, 52);
+    brand_badge->setPixmap(MakeBrandBadge(theme, 52, dpr));
+    brand_layout->addWidget(brand_badge);
     auto* brand_text = new QVBoxLayout;
     brand_text->setSpacing(0);
-    auto* app_name = new QLabel(tr("Azahar"), brand);
+    auto* app_name = new QLabel(tr("Hanami"), brand);
     app_name->setObjectName(QStringLiteral("appName"));
-    app_name->setFont(RoundedFont(24, QFont::DemiBold));
+    app_name->setFont(RoundedFont(27, QFont::Bold));
     auto* app_tag = new QLabel(tr("NINTENDO 3DS EMULATOR"), brand);
     app_tag->setObjectName(QStringLiteral("appTag"));
     QFont tag_font = BodyFont(11, QFont::Bold);
@@ -2123,10 +2223,16 @@ void HomeView::BuildUi() {
     grid_layout->addWidget(empty_state, 1);
     empty_state->hide();
 
+    hero_timer = new QTimer(this);
+    hero_timer->setSingleShot(true);
+    hero_timer->setInterval(45);
+    connect(hero_timer, &QTimer::timeout, this, [this] { UpdateHero(); });
     connect(grid->selectionModel(), &QItemSelectionModel::currentChanged, this,
             [this](const QModelIndex&, const QModelIndex&) {
-                UpdateHero();
+                // O carrossel anima na hora; o destaque (textos, cor, icones) e atualizado em
+                // seguida, uma vez so, para a navegacao rapida nao engasgar.
                 carousel->Refresh(true);
+                hero_timer->start();
                 if (isVisible()) {
                     PlaySound(static_cast<int>(SoundBank::Sound::Move));
                 }
@@ -2219,6 +2325,9 @@ void HomeView::BuildUi() {
 }
 
 void HomeView::RebuildStyleSheet() {
+    if (brand_badge != nullptr) {
+        brand_badge->setPixmap(MakeBrandBadge(theme, 52, devicePixelRatioF()));
+    }
     if (console_emblem != nullptr) {
         console_emblem->setPixmap(MakeGlyph(Glyph::Console, theme.on_bg, 46, devicePixelRatioF()));
     }
@@ -3001,6 +3110,9 @@ void HomeView::ShowContextMenuForCurrent(const QPoint& global_pos) {
 }
 
 void HomeView::UpdateHero() {
+    if (hero_timer != nullptr) {
+        hero_timer->stop();
+    }
     const GameInfo* game = CurrentGame();
     const qreal dpr = devicePixelRatioF();
     const bool has_game = game != nullptr;
@@ -3135,6 +3247,13 @@ void HomeView::resizeEvent(QResizeEvent* event) {
         curtain->setGeometry(rect());
     }
     UpdateHeroSize();
+}
+
+void HomeView::changeEvent(QEvent* event) {
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::ApplicationWindowIconChange && brand_badge != nullptr) {
+        brand_badge->setPixmap(MakeBrandBadge(theme, 52, devicePixelRatioF()));
+    }
 }
 
 void HomeView::UpdateHeroSize() {

@@ -155,7 +155,7 @@ void CoverFetcher::StartNext() {
         const QUrl url(QStringLiteral("https://art.gametdb.com/3ds/cover/%1/%2.jpg")
                            .arg(current_regions[current_region], current_id));
         QNetworkRequest request(url);
-        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Azahar-Home/1.0"));
+        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Hanami-Home/1.0"));
         request.setTransferTimeout(12000);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                              QNetworkRequest::NoLessSafeRedirectPolicy);
