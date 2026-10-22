@@ -206,6 +206,12 @@ static bool ContainsAllWords(const QString& haystack, const QString& userinput) 
 }
 
 // Syncs the expanded state of Game Directories with settings to persist across sessions
+void GameList::RefreshAppIcon() {
+    if (home_view != nullptr) {
+        home_view->RefreshBrand();
+    }
+}
+
 void GameList::OnItemExpanded(const QModelIndex& item) {
     const auto type = item.data(GameListItem::TypeRole).value<GameListItemType>();
     const bool is_dir = type == GameListItemType::CustomDir ||

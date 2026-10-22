@@ -3249,6 +3249,12 @@ void HomeView::resizeEvent(QResizeEvent* event) {
     UpdateHeroSize();
 }
 
+void HomeView::RefreshBrand() {
+    if (brand_badge != nullptr) {
+        brand_badge->setPixmap(MakeBrandBadge(theme, 52, devicePixelRatioF()));
+    }
+}
+
 void HomeView::changeEvent(QEvent* event) {
     QWidget::changeEvent(event);
     if (event->type() == QEvent::ApplicationWindowIconChange && brand_badge != nullptr) {

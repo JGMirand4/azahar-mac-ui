@@ -4364,9 +4364,13 @@ void GMainWindow::UpdateUITheme() {
         const bool system_dark = system_palette.color(QPalette::Window).lightness() < 128;
         const int choice = UISettings::values.home_app_icon.GetValue();
         const bool light = choice == 2 || (choice == 0 && !system_dark);
-        const QIcon app_icon(light ? QStringLiteral(":/home3ds/app_icon_light.png")
-                                   : QStringLiteral(":/home3ds/app_icon_dark.png"));
-        if (!app_icon.isNull()) {
+        const QString icon_path = light ? QStringLiteral(":/home3ds/app_icon_light.png")
+                                        : QStringLiteral(":/home3ds/app_icon_dark.png");
+        const QPixmap icon_pixmap(icon_path);
+        LOG_INFO(Frontend, "App icon: choice={} light={} loaded={}", choice, light,
+                 !icon_pixmap.isNull());
+        if (!icon_pixmap.isNull()) {
+            const QIcon app_icon(icon_pixmap);
             qApp->setWindowIcon(app_icon);
             if (render_window != nullptr) {
                 render_window->setWindowIcon(app_icon);
@@ -4374,6 +4378,11 @@ void GMainWindow::UpdateUITheme() {
             if (secondary_window != nullptr) {
                 secondary_window->setWindowIcon(app_icon);
             }
+            if (game_list != nullptr) {
+                game_list->RefreshAppIcon();
+            }
+        }
+    }
         }
     }
     if (!is_home_theme) {
