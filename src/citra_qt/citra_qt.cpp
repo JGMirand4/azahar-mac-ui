@@ -4383,8 +4383,6 @@ void GMainWindow::UpdateUITheme() {
             }
         }
     }
-        }
-    }
     if (!is_home_theme) {
         qApp->setPalette(system_palette);
     }
