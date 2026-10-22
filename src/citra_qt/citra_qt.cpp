@@ -3105,6 +3105,7 @@ void GMainWindow::OnConfigure() {
     auto old_theme = UISettings::values.theme;
     const auto old_accent = UISettings::values.home_accent_color.GetValue();
     const auto old_bg_top = UISettings::values.home_bg_top.GetValue();
+    const auto old_app_icon = UISettings::values.home_app_icon.GetValue();
     const int old_input_profile_index = Settings::values.current_input_profile_index;
     const auto old_input_profiles = Settings::values.input_profiles;
     const auto old_touch_from_button_maps = Settings::values.touch_from_button_maps;
@@ -3121,7 +3122,8 @@ void GMainWindow::OnConfigure() {
         InitializeHotkeys();
         if (UISettings::values.theme != old_theme ||
             UISettings::values.home_accent_color.GetValue() != old_accent ||
-            UISettings::values.home_bg_top.GetValue() != old_bg_top) {
+            UISettings::values.home_bg_top.GetValue() != old_bg_top ||
+            UISettings::values.home_app_icon.GetValue() != old_app_icon) {
             UpdateUITheme();
         }
 #ifdef ENABLE_DISCORD_RPC
