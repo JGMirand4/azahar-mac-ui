@@ -490,7 +490,10 @@ GMainWindow::GMainWindow(Core::System& system_)
     LOG_INFO(Frontend, "Host Swap: {:.2f} GiB", mem_info.total_swap_memory / f64{1_GiB});
     UpdateWindowTitle();
 
-    QIcon azahar_icon = QIcon(QString::fromStdString(":/icons/default/256x256/azahar.png"));
+    QIcon azahar_icon = QGuiApplication::windowIcon();
+    if (azahar_icon.isNull()) {
+        azahar_icon = QIcon(QString::fromStdString(":/icons/default/256x256/azahar.png"));
+    }
     render_window->setWindowIcon(azahar_icon);
     secondary_window->setWindowIcon(azahar_icon);
 
@@ -3125,6 +3128,10 @@ void GMainWindow::OnConfigure() {
             UISettings::values.home_bg_top.GetValue() != old_bg_top ||
             UISettings::values.home_app_icon.GetValue() != old_app_icon) {
             UpdateUITheme();
+            const QIcon new_icon = QGuiApplication::windowIcon();
+            render_window->setWindowIcon(new_icon);
+            secondary_window->setWindowIcon(new_icon);
+            game_list->RefreshAppIcon();
         }
 #ifdef ENABLE_DISCORD_RPC
         if (UISettings::values.enable_discord_presence.GetValue() != old_discord_presence) {
@@ -4372,15 +4379,6 @@ void GMainWindow::UpdateUITheme() {
         if (!icon_pixmap.isNull()) {
             const QIcon app_icon(icon_pixmap);
             qApp->setWindowIcon(app_icon);
-            if (render_window != nullptr) {
-                render_window->setWindowIcon(app_icon);
-            }
-            if (secondary_window != nullptr) {
-                secondary_window->setWindowIcon(app_icon);
-            }
-            if (game_list != nullptr) {
-                game_list->RefreshAppIcon();
-            }
         }
     }
     if (!is_home_theme) {
